@@ -2,6 +2,7 @@ import socket
 import ssl
 from ssl_config import load_ssl_context
 
+
 def handle_client(secure_socket, addr):
     print(f"Connected by {addr}")
     try:

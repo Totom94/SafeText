@@ -1,7 +1,6 @@
 import socket
 import ssl
 
-
 def create_client(host='localhost', port=6789):
     context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
     context.load_verify_locations(cafile="C:/Users/tomgo/ssl/server.crt")  # Chemin vers le certificat du serveur

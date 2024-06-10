@@ -1,6 +1,7 @@
 import sqlite3
 import hashlib
 
+
 def create_user_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()

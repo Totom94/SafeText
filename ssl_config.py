@@ -2,6 +2,7 @@ import os
 import ssl
 from pathlib import Path
 
+
 def load_ssl_context():
     home_dir = Path.home()
     ssl_dir = home_dir / "ssl"
