@@ -2,11 +2,8 @@ import os
 import ssl
 from pathlib import Path
 
-
 def load_ssl_context():
-    # Obtient le répertoire personnel de l'utilisateur actuel
     home_dir = Path.home()
-    # Spécifie un sous-dossier dans le répertoire personnel où les fichiers SSL sont censés être stockés
     ssl_dir = home_dir / "ssl"
 
     key_path = ssl_dir / "server.key"
@@ -19,5 +16,3 @@ def load_ssl_context():
     ssl_context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
 
     return ssl_context
-
-

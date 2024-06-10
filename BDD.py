@@ -26,5 +26,3 @@ def authenticate_user(username, password):
     if db_password_hash and db_password_hash[0] == hashlib.sha256(password.encode()).hexdigest():
         return True
     return False
-
-
