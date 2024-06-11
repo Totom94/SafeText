@@ -3,20 +3,13 @@ import ssl
 import threading
 import tkinter as tk
 from tkinter import simpledialog, scrolledtext
-from ssl_config import load_ssl_context
-
+from pathlib import Path
 
 class ChatClient:
     def __init__(self, host='localhost', port=6789):
         self.host = host
         self.port = port
-        self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-        self.context.load_verify_locations(cafile="C:/Users/tomgo/ssl/server.crt")  # Chemin vers le certificat du serveur
-        self.context.check_hostname = False  # Désactiver la vérification du nom d'hôte pour les tests
-        self.context.verify_mode = ssl.CERT_REQUIRED
-
-        self.sock = None
-        self.secure_sock = None
+        self.context = self.load_ssl_context()
 
         self.root = tk.Tk()
         self.root.title("Secure Chat")
@@ -24,15 +17,48 @@ class ChatClient:
         self.chat_log = scrolledtext.ScrolledText(self.root, state='disabled')
         self.chat_log.grid(row=0, column=0, columnspan=2)
 
+        self.pseudo_entry = tk.Entry(self.root, width=50)
+        self.pseudo_entry.grid(row=1, column=0, columnspan=2)
+
+        self.email_entry = tk.Entry(self.root, width=50)
+        self.email_entry.grid(row=2, column=0, columnspan=2)
+
+        self.password_entry = tk.Entry(self.root, show="*", width=50)
+        self.password_entry.grid(row=3, column=0, columnspan=2)
+
+        self.login_button = tk.Button(self.root, text="Login", command=self.login)
+        self.login_button.grid(row=4, column=0)
+
+        self.register_button = tk.Button(self.root, text="Register", command=self.register)
+        self.register_button.grid(row=4, column=1)
+
         self.msg_entry = tk.Entry(self.root, width=50)
-        self.msg_entry.grid(row=1, column=0)
+        self.msg_entry.grid(row=5, column=0)
 
         self.send_button = tk.Button(self.root, text="Send", command=self.send_msg)
-        self.send_button.grid(row=1, column=1)
+        self.send_button.grid(row=5, column=1)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        self.connect_to_server()
+        self.connect_to_server()  # Cette ligne devrait être après l'initialisation complète
+        self.root.mainloop()
+
+    def load_ssl_context(self):
+        home_dir = Path.home()
+        ssl_dir = home_dir / "ssl"
+
+        key_path = ssl_dir / "server.key"
+        cert_path = ssl_dir / "server.crt"
+
+        if not key_path.exists() or not cert_path.exists():
+            raise FileNotFoundError(f"Les fichiers SSL n'ont pas été trouvés dans {ssl_dir}")
+
+        ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        ssl_context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE  # Ignore SSL certificate verification
+
+        return ssl_context
 
     def connect_to_server(self):
         try:
@@ -42,20 +68,21 @@ class ChatClient:
         except Exception as e:
             self.print_to_log(f"Connection failed: {e}")
 
+    def login(self):
+        pseudo = self.pseudo_entry.get()
+        password = self.password_entry.get()
+        self.secure_sock.sendall(f"/login {pseudo} {password}".encode('utf-8'))
+
+    def register(self):
+        pseudo = self.pseudo_entry.get()
+        email = self.email_entry.get()
+        password = self.password_entry.get()
+        self.secure_sock.sendall(f"/register {pseudo} {email} {password}".encode('utf-8'))
+
     def send_msg(self):
         message = self.msg_entry.get()
-        if message.lower() == 'exit':
-            self.disconnect_from_server()
-            self.root.quit()
-            return
-
         self.secure_sock.sendall(message.encode('utf-8'))
         self.msg_entry.delete(0, tk.END)
-        self.print_to_log(f"You: {message}")
-
-        data = self.secure_sock.recv(1024)
-        if data:
-            self.print_to_log(f"Server: {data.decode('utf-8')}")
 
     def print_to_log(self, message):
         self.chat_log.config(state='normal')
@@ -64,42 +91,17 @@ class ChatClient:
         self.chat_log.yview(tk.END)
 
     def disconnect_from_server(self):
-        if self.secure_sock:
-            self.secure_sock.sendall("exit".encode('utf-8'))
-            self.secure_sock.close()
-        if self.sock:
-            self.sock.close()
-        self.print_to_log("Disconnected from server.")
+        self.secure_sock.sendall("exit".encode('utf-8'))
+        self.secure_sock.close()
 
     def on_closing(self):
         self.disconnect_from_server()
         self.root.quit()
 
     def run(self):
+        self.connect_to_server()
         self.root.mainloop()
-
-def send_msg(self):
-    def do_send():
-        message = self.msg_entry.get()
-        if message.lower() == 'exit':
-            self.disconnect_from_server()
-            self.root.quit()
-            return
-
-        try:
-            self.secure_sock.sendall(message.encode('utf-8'))
-            self.msg_entry.delete(0, tk.END)
-            data = self.secure_sock.recv(1024)
-            if data:
-                self.print_to_log(f"Server: {data.decode('utf-8')}")
-        except Exception as e:
-            self.print_to_log(f"Error sending message: {e}")
-            self.disconnect_from_server()
-
-    threading.Thread(target=do_send).start()
 
 if __name__ == '__main__':
     client = ChatClient()
     client.run()
-
-

@@ -1,7 +1,6 @@
 import socket
 import ssl
 import threading
-from BDD import authenticate_user
 from ssl_config import load_ssl_context
 
 rooms = {}  # Dictionnaire pour stocker les salles et leurs membres
