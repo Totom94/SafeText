@@ -1,69 +1,56 @@
 import socket
-import ssl
 import threading
-from ssl_config import load_ssl_context
 
-rooms = {}  # Dictionnaire pour stocker les salles et leurs membres
+clients = {}
+lock = threading.Lock()
 
-def handle_client(secure_socket, addr):
-    current_room = None
-    try:
-        # Attendre les données du client
-        while True:
-            data = secure_socket.recv(1024).decode('utf-8')
-            if not data:
-                break
-
-            # Commande pour rejoindre une salle
-            if data.startswith("/join"):
-                _, room_name = data.split()
-                if current_room:
-                    # Quitter la salle actuelle si elle existe
-                    rooms[current_room].remove(secure_socket)
-                    send_to_room(current_room, f"{addr} has left the room {current_room}")
-                # Ajouter à la nouvelle salle
-                rooms[room_name].append(secure_socket)
-                current_room = room_name
-                send_to_room(current_room, f"{addr} has joined the room {room_name}")
-
-            # Commande pour quitter une salle
-            elif data.startswith("/leave"):
-                if current_room:
-                    rooms[current_room].remove(secure_socket)
-                    send_to_room(current_room, f"{addr} has left the room {current_room}")
-                    current_room = None
-
-            # Envoyer un message à la salle actuelle
-            elif data.startswith("/msg") and current_room:
-                _, msg = data.split(maxsplit=1)
-                send_to_room(current_room, f"{addr} says: {msg}")
-    finally:
-        # Fermeture de la connexion
-        if current_room and secure_socket in rooms[current_room]:
-            rooms[current_room].remove(secure_socket)
-            send_to_room(current_room, f"{addr} has left the chat")
-        secure_socket.close()
-
-def send_to_room(room_name, message):
-    for member in rooms[room_name]:
+def broadcast_users():
+    users_list = [clients[client] for client in clients]  # Liste des noms d'utilisateur
+    for client in clients:
         try:
-            member.sendall(message.encode('utf-8'))
+            client.sendall(f"USERS_LIST {','.join(users_list)}".encode('utf-8'))
         except:
-            rooms[room_name].remove(member)
+            continue
+        
+def handle_client(client_socket, addr):
+    name = client_socket.recv(1024).decode('utf-8')
+    clients[client_socket] = name
+    broadcast_users()
 
-def create_server(host='localhost', port=6789):
-    context = load_ssl_context()
+    try:
+        while True:
+            message = client_socket.recv(1024)
+            if not message:
+                break
+            broadcast(message, name + ": ")
+    finally:
+        del clients[client_socket]
+        broadcast_users()
+        client_socket.close()
+
+def update_clients():
+    users_list = ', '.join(clients.values())
+    broadcast(users_list.encode('utf-8'), "UPDATE_USERS_LIST ")
+
+def broadcast(message, prefix=""):
+    with lock:
+        for client in clients:
+            client.sendall(prefix.encode('utf-8') + message)
+
+def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
-    print(f"Listening on {host}:{port}...")
-
-    while True:
-        client_socket, addr = server_socket.accept()
-        secure_socket = context.wrap_socket(client_socket, server_side=True)
-        thread = threading.Thread(target=handle_client, args=(secure_socket, addr))
-        thread.start()
+    server_socket.bind(('localhost', 6789))
+    server_socket.listen()
+    print("Server listening on port 6789...")
+    
+    try:
+        while True:
+            client_socket, addr = server_socket.accept()
+            thread = threading.Thread(target=handle_client, args=(client_socket, addr))
+            thread.start()
+    finally:
+        server_socket.close()
 
 if __name__ == '__main__':
-    create_server()
+    start_server()
 
