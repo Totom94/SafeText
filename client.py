@@ -1,28 +1,70 @@
+import sys
 import socket
-import ssl
-import getpass
+import threading
+import tkinter as tk
+from tkinter import scrolledtext, simpledialog
 
-def create_client(host='localhost', port=6789):
-    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    context.load_verify_locations(cafile="C:/Users/tomgo/ssl/server.crt")  # Chemin vers le certificat du serveur
-    username = input("Enter username: ")
-    password = getpass.getpass("Enter password: ")
-    context.check_hostname = False  # Désactiver la vérification du nom d'hôte pour les tests
-    # context.verify_mode = ssl.CERT_REQUIRED  # Gardez cette ligne pour des environnements de production sécurisés
+class ChatClient:
+    def __init__(self, host, port, username):
+        self.username = username
+        self.root = tk.Tk()
+        self.root.title("Chat Room")
+        
+        self.chat_log = scrolledtext.ScrolledText(self.root, state='disabled', height=20, width=50)
+        self.chat_log.grid(row=0, column=0, padx=10, pady=10)
+        
+        self.users_list = tk.Listbox(self.root, height=20, width=20)
+        self.users_list.grid(row=0, column=1, padx=10, pady=10)
 
-    # Connexion sécurisée au serveur
-    with socket.create_connection((host, port)) as sock:
-        with context.wrap_socket(sock, server_hostname=host) as secure_sock:
-            print(f"Connected to {host}:{port}")
+        self.msg_entry = tk.Entry(self.root, width=50)
+        self.msg_entry.grid(row=1, column=0, padx=10, pady=10)
+        
+        send_button = tk.Button(self.root, text="Send", command=self.send_msg)
+        send_button.grid(row=1, column=1, padx=10, pady=10)
+        
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, port))
+        
+        self.name = simpledialog.askstring("Name", "What's your name?", parent=self.root)
+        self.sock.sendall(self.name.encode('utf-8'))
 
-            # Envoi des informations d'authentification
-            secure_sock.sendall(f"/login {username} {password}".encode('utf-8'))
-            auth_status = secure_sock.recv(1024).decode('utf-8')
-            if auth_status == "Authentication successful":
-                print("Authentication successful")
-            else:
-                print("Authentication failed: " + auth_status)
-                return
+        receive_thread = threading.Thread(target=self.receive_messages)
+        receive_thread.start()
+
+        self.root.mainloop()
+        self.users_list_box = tk.Listbox(self.root, height=15, width=30)
+        self.users_list_box.grid(row=0, column=1, sticky='nsew', padx=5)
+
+    def send_msg(self):
+        message = self.msg_entry.get()
+        if message:
+            self.sock.sendall(message.encode('utf-8'))
+            self.msg_entry.delete(0, tk.END)
+
+    def receive_messages(self):
+        while True:
+            try:
+                message = self.sock.recv(1024).decode('utf-8')
+                if message.startswith("USERS_LIST"):
+                    users = message.split(' ')[1]
+                    self.update_users_list(users.split(','))
+                else:
+                    self.chat_log.config(state='normal')
+                    self.chat_log.insert(tk.END, message + '\n')
+                    self.chat_log.config(state='disabled')
+                    self.chat_log.yview(tk.END)
+            except:
+                break
+
+    def update_users_list(self, users):
+        self.users_list_box.delete(0, tk.END)
+        for user in users:
+            self.users_list_box.insert(tk.END, user)
 
 if __name__ == '__main__':
-    create_client()
+    if len(sys.argv) < 2:
+        print("Usage: python client.py <username>")
+        sys.exit(1)
+    username = sys.argv[1]
+    ChatClient('localhost', 6789, username)
+
