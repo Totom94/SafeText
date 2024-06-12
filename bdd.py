@@ -1,14 +1,78 @@
 import sqlite3
 
-conn = sqlite3.connect('SAFETEXT.db')
-cur = conn.cursor()
-#cur.execute("DROP TABLE IF EXISTS Users")
-#cur.execute("CREATE TABLE Users (id INTEGER PRIMARY KEY AUTOINCREMENT, pseudo TEXT, email TEXT, password TEXT)")
+def connect_db():
+    """Create a database connection to the SQLite database."""
+    try:
+        conn = sqlite3.connect('SF.db')
+        return conn
+    except sqlite3.Error as e:
+        print(f"Error connecting to database: {e}")
 
-cur.execute("""INSERT INTO Users(id, pseudo, email, password) 
-VALUES (1, 'User1', 'user1@gmail.com', 'user1')""")
+def create_user(pseudo, email, password):
+    """
+    Create a new user in the Users table.
+    :param pseudo: username of the user
+    :param email: email of the user
+    :param password: password of the user
+    """
+    try:
+        conn = connect_db()
+        if conn is not None:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO Users (pseudo, email, password) VALUES (?, ?, ?)", (pseudo, email, password))
+            conn.commit()
+            print("User created successfully.")
+        else:
+            print("Error! cannot create the database connection.")
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        if conn:
+            conn.close()
 
-conn.commit()
+def authenticate_user(pseudo, password):
+    """
+    Authenticate a user from the Users table.
+    :param pseudo: username of the user
+    :param password: password of the user
+    """
+    try:
+        conn = connect_db()
+        if conn is not None:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM Users WHERE pseudo = ? AND password = ?", (pseudo, password))
+            user = cur.fetchone()
+            return user
+        else:
+            print("Error! cannot create the database connection.")
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        if conn:
+            conn.close()
 
-conn.close()
+def init_db():
+    """Create the Users table in the database if it doesn't already exist."""
+    try:
+        conn = connect_db()
+        if conn is not None:
+            cur = conn.cursor()
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS Users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pseudo TEXT,
+                email TEXT,
+                password TEXT
+            )""")
+            conn.commit()
+            print("Database initialized successfully.")
+        else:
+            print("Error! cannot create the database connection.")
+    except sqlite3.Error as e:
+        print(f"An error occurred while initializing the database: {e}")
+    finally:
+        if conn:
+            conn.close()
 
+if __name__ == "__main__":
+    init_db()
