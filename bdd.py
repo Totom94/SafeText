@@ -74,5 +74,20 @@ def init_db():
         if conn:
             conn.close()
 
+def set_user_status(username, status):
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE Users SET is_connected = ? WHERE username = ?", (status, username))
+    conn.commit()
+    conn.close()
+
+def get_user_status():
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, is_connected FROM Users")
+    users_status = cursor.fetchall()
+    conn.close()
+    return users_status
+
 if __name__ == "__main__":
     init_db()

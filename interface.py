@@ -1,9 +1,9 @@
 import tkinter as tk
-from tkinter import scrolledtext
-from tkinter import messagebox
+from tkinter import scrolledtext, messagebox, simpledialog
 from bdd import authenticate_user, create_user
 import subprocess
 import sys
+from pathlib import Path
 
 def show_login_frame():
     register_frame.pack_forget()
@@ -14,23 +14,42 @@ def show_register_frame():
     register_frame.pack()
 
 def open_chat_window(username):
-    main_window.destroy()
-    subprocess.Popen([sys.executable, 'client.py', username])
+    # Cacher la fenêtre principale et ouvrir une fenêtre de chat
+    main_window.withdraw()
+    chat_window = tk.Toplevel(main_window)
+    chat_window.title(f"Chat Room - {username}")
+    chat_window.geometry("400x400")
 
-    def on_closing(chat_window):
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            chat_window.destroy()
-            main_window.destroy()  # Ceci va fermer complètement l'application
+    # Zone de chat pour afficher les messages
+    chat_log = scrolledtext.ScrolledText(chat_window, state='disabled', height=15, width=50)
+    chat_log.pack(pady=10)
+
+    # Entrée de message
+    msg_entry = tk.Entry(chat_window, width=40)
+    msg_entry.pack(pady=5)
+
+    # Bouton pour envoyer des messages
+    send_button = tk.Button(chat_window, text="Send", command=lambda: send_message(chat_log, msg_entry))
+    send_button.pack()
+
+    # Gestion de la fermeture de la fenêtre de chat
+    chat_window.protocol("WM_DELETE_WINDOW", lambda: on_closing(chat_window))
+
 
 def send_message(chat_log, msg_entry):
     message = msg_entry.get()
     if message:
-        # Afficher le message dans la zone de chat
+        # Simuler l'envoi et la réception de messages
         chat_log.config(state='normal')
         chat_log.insert(tk.END, message + '\n')
         chat_log.config(state='disabled')
         chat_log.yview(tk.END)
         msg_entry.delete(0, tk.END)
+
+def on_closing(chat_window):
+    # Réafficher la fenêtre principale lorsque la fenêtre de chat est fermée
+    chat_window.destroy()
+    main_window.deiconify()
 
 def login():
     username = username_login_entry.get()
@@ -38,7 +57,7 @@ def login():
     user = authenticate_user(username, password)
     if user:
         messagebox.showinfo("Login Info", "Successful Login")
-        open_chat_window(username)  # Passer le nom d'utilisateur
+        open_chat_window(username)
     else:
         messagebox.showerror("Login Info", "Incorrect username or password")
 
@@ -52,7 +71,11 @@ def register():
     show_login_frame()
 
 main_window = tk.Tk()
-main_window.title("Secure Chat Login")
+main_window.title("SafeText")
+main_window.geometry("800x600")  # Augmenter la taille de la fenêtre
+icon_path = Path(__file__).parent / "C:/Users/tomgo/Downloads/icone.ico"
+if icon_path.exists():
+    main_window.iconbitmap(str(icon_path))
 
 # Configuration de la fenêtre de connexion
 login_frame = tk.Frame(main_window)
@@ -78,6 +101,10 @@ password_register_entry = tk.Entry(register_frame, show='*')
 password_register_entry.pack()
 tk.Button(register_frame, text="Register", command=register).pack()
 tk.Button(register_frame, text="Back to Login", command=show_login_frame).pack()
+
+# Ajout d'un label pour afficher le nom d'utilisateur connecté
+user_label = tk.Label(main_window)
+
 
 login_frame.pack()
 
