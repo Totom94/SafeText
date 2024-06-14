@@ -40,6 +40,5 @@ class ChatClient:
     def run(self):
         self.root.mainloop()
 
-if __name__ == "__main__":
-    client = ChatClient('localhost', 6789, 'username')
-    client.run()
+    def close_connection(self):
+        self.sock.close()

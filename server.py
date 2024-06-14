@@ -17,15 +17,15 @@ def broadcast_users():
 
 
 def handle_client(client_socket, addr):
-    print(f"Connection from {addr} has been established.")
+    clients[client_socket] = addr  # Assurez-vous d'ajouter le client à un dictionnaire global
     try:
         while True:
             message = client_socket.recv(1024).decode('utf-8')
-            if not message:
-                print(f"No more data from {addr}.")
+            if message:
+                print(f"Received from {addr}: {message}")
+                broadcast(message, client_socket)  # Diffuser le message
+            else:
                 break
-            print(f"Received from {addr}: {message}")
-            broadcast(message, f"{clients[client_socket]}: ")
     except Exception as e:
         print(f"Error with {addr}: {e}")
     finally:
@@ -36,19 +36,20 @@ def handle_client(client_socket, addr):
 
 
 
+
 def update_clients():
     users_list = ', '.join(clients.values())
     broadcast(users_list.encode('utf-8'), "UPDATE_USERS_LIST ")
 
-def broadcast(message, prefix=""):
-    with lock:
-        for client in clients:
+def broadcast(message, sender_socket):
+    """Send a message to all clients except the sender."""
+    for client in clients.values():
+        if client != sender_socket:
             try:
-                client.sendall(prefix.encode('utf-8') + message)
-                print(f"Broadcasting message to {client}: {prefix + message.decode('utf-8')}")  # Affiche les messages diffusés
+                client.sendall(message.encode('utf-8'))
             except Exception as e:
-                print(f"Failed to broadcast to {client}: {e}")  # Affiche les erreurs
-                continue
+                print(f"Failed to send message to {client}: {e}")
+
 
 
 def start_server():
@@ -56,9 +57,11 @@ def start_server():
     server_socket.bind(('localhost', 6789))
     server_socket.listen(5)
     clients = []
+    print("Server listening on localhost:6789...")
     try:
         while True:
             conn, addr = server_socket.accept()
+            print(f"Connection from {addr} established")
             clients.append(conn)
             threading.Thread(target=client_thread, args=(conn, addr, clients)).start()
     finally:
