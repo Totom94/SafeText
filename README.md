@@ -19,7 +19,7 @@ SafeText est une application de chat sécurisée qui permet aux utilisateurs de 
 
 1. Clonez le dépôt GitHub :
     ```bash
-    git clone https://github.com/votre-utilisateur/SafeText.git
+    git clone https://github.com/Totom94/SafeText.git
     cd SafeText
     ```
 
