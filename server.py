@@ -5,6 +5,7 @@ from bdd import set_user_status, get_user_status
 clients = {}
 lock = threading.Lock()
 
+
 def broadcast_users():
     with lock:
         users_status = get_user_status()  # Cette fonction doit interroger la base de données pour obtenir le statut
@@ -34,12 +35,10 @@ def handle_client(client_socket, addr):
         print(f"Connection with {addr} closed.")
 
 
-
-
-
 def update_clients():
     users_list = ', '.join(clients.values())
     broadcast(users_list.encode('utf-8'), "UPDATE_USERS_LIST ")
+
 
 def broadcast(message, sender_socket):
     """Send a message to all clients except the sender."""
@@ -49,7 +48,6 @@ def broadcast(message, sender_socket):
                 client.sendall(message.encode('utf-8'))
             except Exception as e:
                 print(f"Failed to send message to {client}: {e}")
-
 
 
 def start_server():
@@ -71,14 +69,22 @@ def start_server():
 def client_thread(conn, addr, clients):
     try:
         while True:
-            message = conn.recv(1024).decode('utf-8')
-            print(f"Received {message} from {addr}")
-            for c in clients:
-                if c != conn:
-                    c.sendall(message.encode('utf-8'))
+            try:
+                message = conn.recv(1024).decode('utf-8')
+                if not message:
+                    break
+                print(f"Received {message} from {addr}")
+                for c in clients:
+                    if c != conn:
+                        c.sendall(message.encode('utf-8'))
+            except ConnectionResetError:
+                break
     finally:
         conn.close()
+        with lock:
+            clients.remove(conn)
+            update_clients()
+
 
 if __name__ == '__main__':
     start_server()
-
