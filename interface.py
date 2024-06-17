@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import scrolledtext, Button, Label, Frame, Entry, messagebox, Listbox
 from pathlib import Path
 from client import ChatClient
-from bdd import authenticate_user, create_user, get_connected_users, set_user_status
-#import threading
-#from queue import Queue
+from bdd import authenticate_user, create_user, get_connected_users, set_user_status, get_user_otp_secret
+import pyotp
+import qrcode
 
 def open_chat_window(username):
     global chat_client, messages, entry, user_list
@@ -39,27 +39,14 @@ def open_chat_window(username):
     chat_window.protocol("WM_DELETE_WINDOW", lambda: on_closing(chat_window, username))  # Gérer la fermeture de la fenêtre
     update_user_list_periodically(chat_window)
 
-    """def update_user_list_periodically():
-        update_user_list()
-        chat_window.after(5000, update_user_list_periodically)
-
-    threading.Thread(target=update_user_list_periodically, daemon=True).start()
-
-
-
-    chat_window.after(5000, update_user_list_periodically)"""
-
-
 def on_closing(window, username):
     set_user_status(username, 0)  # Définir l'utilisateur comme déconnecté dans la base de données
     chat_client.close_connection()
     window.destroy()
-    main_window.deiconify()  # Affiche la fenêtre principale
-
+    main_window.deiconify() 
 
 def on_message_received(message):
     messages.insert(tk.END, f"{message}\n")
-
 
 def send_message():
     message = entry.get()
@@ -67,23 +54,19 @@ def send_message():
         chat_client.send_message(message)
         entry.delete(0, tk.END)
 
-
 def show_login_frame():
     register_frame.pack_forget()
     login_frame.pack()
 
-
 def show_register_frame():
     login_frame.pack_forget()
     register_frame.pack()
-
 
 def update_user_list_periodically(window):
     if not window.winfo_exists():
         return
     update_user_list()
     window.after(5000, lambda: update_user_list_periodically(window))
-
 
 def update_user_list():
     user_list.delete(0, tk.END)
@@ -98,28 +81,44 @@ def update_user_list():
             user_list.insert(tk.END, f"{user} ({status})")
             user_list.itemconfig(tk.END, {'fg': 'grey'})  # Afficher les utilisateurs déconnectés en gris
 
-
 def login():
     username = username_login_entry.get()
     password = password_login_entry.get()
-    # Mock function authenticate_user
+    otp = otp_login_entry.get()
     user = authenticate_user(username, password)
     if user:
-        messagebox.showinfo("Login Info", "Successful Login")
-        open_chat_window(username)
+        otp_secret = get_user_otp_secret(username)
+        totp = pyotp.TOTP(otp_secret)
+        if totp.verify(otp):
+            messagebox.showinfo("Login Info", "Successful Login")
+            open_chat_window(username)
+        else:
+            messagebox.showerror("Login Info", "Incorrect OTP")
     else:
         messagebox.showerror("Login Info", "Incorrect username or password")
-
 
 def register():
     username = username_register_entry.get()
     email = email_register_entry.get()
     password = password_register_entry.get()
-    # Mock function create_user
-    create_user(username, email, password)
-    messagebox.showinfo("Register Info", "Account created successfully")
+    otp_secret = create_user(username, email, password)
+    totp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="SafeText")
+    qr = qrcode.make(totp_uri)
+    qr_path = f"{username}_qrcode.png"
+    qr.save(qr_path)
+    messagebox.showinfo("Register Info", f"Account created successfully. Scan the QR code with your authenticator app.")
     show_login_frame()
+    show_qr_code_window(qr_path)
 
+def show_qr_code_window(qr_path):
+    qr_window = tk.Toplevel(main_window)
+    qr_window.title("Scan QR Code")
+    qr_window.geometry("500x500")
+    qr_image = tk.PhotoImage(file=qr_path)
+    qr_label = tk.Label(qr_window, image=qr_image)
+    qr_label.image = qr_image  # Keep a reference to avoid garbage collection
+    qr_label.pack(pady=20)
+    tk.Button(qr_window, text="OK", command=qr_window.destroy).pack(pady=10)
 
 # Configuration de la fenêtre principale Tkinter
 main_window = tk.Tk()
@@ -138,6 +137,9 @@ username_login_entry.pack()
 tk.Label(login_frame, text="Password:").pack()
 password_login_entry = tk.Entry(login_frame, show='*')
 password_login_entry.pack()
+tk.Label(login_frame, text="OTP:").pack()  # Ajouter le champ OTP
+otp_login_entry = tk.Entry(login_frame)
+otp_login_entry.pack()
 tk.Button(login_frame, text="Login", command=login).pack()
 tk.Button(login_frame, text="Register", command=show_register_frame).pack()
 
@@ -158,3 +160,5 @@ tk.Button(register_frame, text="Back to Login", command=show_login_frame).pack()
 login_frame.pack()
 
 main_window.mainloop()
+
+
