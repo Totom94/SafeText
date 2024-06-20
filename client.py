@@ -14,44 +14,58 @@ class ChatClient:
         # Charger la clé publique
         self.public_key = load_public_key()
 
-        # Créer un contexte SSL
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        try:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
 
-        # Connecter au serveur via SSL
-        self.sock = context.wrap_socket(socket.socket(socket.AF_INET), server_side=False)
-        self.sock.connect((host, port))
-        self.sock.sendall(self.encrypt_message(f"LOGIN {username}"))
+            self.sock = context.wrap_socket(socket.socket(socket.AF_INET), server_side=False)
+            self.sock.connect((host, port))
+            self.sock.sendall(self.encrypt_message(f"LOGIN {username}"))
 
-        # Démarrer le thread pour recevoir des messages
-        threading.Thread(target=self.receive_messages, daemon=True).start()
+            threading.Thread(target=self.receive_messages, daemon=True).start()
+        except ssl.SSLError as e:
+            print(f"SSL error occurred: {e}")
+            raise
+        except socket.error as e:
+            print(f"Socket error occurred: {e}")
+            raise
 
     def encrypt_message(self, message):
         return encrypt_message(message, self.public_key)
 
     def send_message(self, message):
-        if message:
-            encrypted_message = self.encrypt_message(message)
-            self.sock.sendall(encrypted_message)
+        try:
+            if message:
+                encrypted_message = self.encrypt_message(message)
+                self.sock.sendall(encrypted_message)
+        except Exception as e:
+            print(f"Error sending message: {e}")
 
     def receive_messages(self):
         while True:
             try:
                 encrypted_message = self.sock.recv(1024)
-                if encrypted_message:
-                    message = encrypted_message.decode('utf-8')
-                    if self.message_received_callback:
-                        self.message_received_callback(message)
+                if not encrypted_message:
+                    break
+                message = encrypted_message.decode('utf-8')
+                if self.message_received_callback:
+                    self.message_received_callback(message)
+            except ssl.SSLError as e:
+                print(f"SSL error occurred: {e}")
+                break
+            except socket.error as e:
+                print(f"Socket error occurred: {e}")
+                break
             except Exception as e:
-                print("Error receiving message:", e)
+                print(f"Error receiving message: {e}")
                 break
 
-    def run(self):
-        self.root.mainloop()
-
     def close_connection(self):
-        self.sock.close()
+        try:
+            self.sock.close()
+        except Exception as e:
+            print(f"Error closing connection: {e}")
 
 
 def message_received_callback(message):
@@ -63,8 +77,14 @@ if __name__ == "__main__":
     port = 8443
     username = 'user1'
 
-    client = ChatClient(host, port, username, message_received_callback)
+    try:
+        client = ChatClient(host, port, username, message_received_callback)
 
-    while True:
-        message = input("Enter message: ")
-        client.send_message(message)
+        while True:
+            message = input("Enter message: ")
+            client.send_message(message)
+
+    except KeyboardInterrupt:
+        print("Client terminated by user.")
+    finally:
+        client.close_connection()

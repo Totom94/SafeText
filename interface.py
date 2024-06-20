@@ -9,7 +9,12 @@ import qrcode
 
 def open_chat_window(username):
     global chat_client, messages, entry, user_list
-    chat_client = ChatClient('localhost', 8443, username, on_message_received)
+    try:
+        chat_client = ChatClient('localhost', 8443, username, on_message_received)
+    except Exception as e:
+        messagebox.showerror("Connection Error", f"Failed to connect to server: {e}")
+        return
+
     main_window.withdraw()  # Cache la fenêtre principale
 
     chat_window = tk.Toplevel(main_window)
@@ -55,8 +60,11 @@ def on_message_received(message):
 def send_message():
     message = entry.get()
     if message:
-        chat_client.send_message(message)
-        entry.delete(0, tk.END)
+        try:
+            chat_client.send_message(message)
+            entry.delete(0, tk.END)
+        except Exception as e:
+            messagebox.showerror("Send Error", f"Failed to send message: {e}")
 
 
 def show_login_frame():
@@ -94,31 +102,37 @@ def login():
     username = username_login_entry.get()
     password = password_login_entry.get()
     otp = otp_login_entry.get()
-    user = authenticate_user(username, password)
-    if user:
-        otp_secret = get_user_otp_secret(username)
-        totp = pyotp.TOTP(otp_secret)
-        if totp.verify(otp):
-            messagebox.showinfo("Login Info", "Successful Login")
-            open_chat_window(username)
+    try:
+        user = authenticate_user(username, password)
+        if user:
+            otp_secret = get_user_otp_secret(username)
+            totp = pyotp.TOTP(otp_secret)
+            if totp.verify(otp):
+                messagebox.showinfo("Login Info", "Successful Login")
+                open_chat_window(username)
+            else:
+                messagebox.showerror("Login Info", "Incorrect OTP")
         else:
-            messagebox.showerror("Login Info", "Incorrect OTP")
-    else:
-        messagebox.showerror("Login Info", "Incorrect username or password")
-
+            messagebox.showerror("Login Info", "Incorrect username or password")
+    except Exception as e:
+        messagebox.showerror("Login Error", f"Login failed: {e}")
 
 def register():
     username = username_register_entry.get()
     email = email_register_entry.get()
     password = password_register_entry.get()
-    otp_secret = create_user(username, email, password)
-    totp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="SafeText")
-    qr = qrcode.make(totp_uri)
-    qr_path = f"{username}_qrcode.png"
-    qr.save(qr_path)
-    messagebox.showinfo("Register Info", f"Account created successfully. Scan the QR code with your authenticator app.")
-    show_login_frame()
-    show_qr_code_window(qr_path)
+    try:
+        otp_secret = create_user(username, email, password)
+        totp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="SafeText")
+        qr = qrcode.make(totp_uri)
+        qr_path = f"{username}_qrcode.png"
+        qr.save(qr_path)
+        messagebox.showinfo("Register Info",
+                            f"Account created successfully. Scan the QR code with your authenticator app.")
+        show_login_frame()
+        show_qr_code_window(qr_path)
+    except Exception as e:
+        messagebox.showerror("Registration Error", f"Registration failed: {e}")
 
 
 def show_qr_code_window(qr_path):
