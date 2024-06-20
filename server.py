@@ -1,7 +1,7 @@
 import socket
 import ssl
 import threading
-from bdd import set_user_status, get_user_status
+from bdd import set_user_status, get_user_status, reset_all_user_statuses
 from Cipher import load_private_key, decrypt_message
 
 clients = {}
@@ -99,4 +99,5 @@ def main():
 
 
 if __name__ == "__main__":
+    reset_all_user_statuses()
     main()

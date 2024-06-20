@@ -79,7 +79,9 @@ def authenticate_user(pseudo, password):
         conn = connect_db()
         if conn is not None:
             cur = conn.cursor()
-            cur.execute("SELECT * FROM Users WHERE pseudo = ? AND password = ?", (pseudo, password))
+            # Vérifier si l'utilisateur est déjà connecté
+            cur.execute("SELECT * FROM Users WHERE pseudo = ? AND password = ? AND is_connected = 0",
+                        (pseudo, password))
             user = cur.fetchone()
             if user:
                 set_user_status(pseudo, 1)  # Définir l'utilisateur comme connecté
@@ -186,6 +188,23 @@ def get_connected_users():
         if conn:
             conn.close()
     return []
+
+
+def reset_all_user_statuses():
+    try:
+        conn = connect_db()
+        if conn is not None:
+            cur = conn.cursor()
+            cur.execute("UPDATE Users SET is_connected = 0")
+            conn.commit()
+            print("All user statuses reset to offline.")
+        else:
+            print("Error! cannot create the database connection.")
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 
 if __name__ == "__main__":

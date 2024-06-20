@@ -47,10 +47,14 @@ def open_chat_window(username):
 
 
 def on_closing(window, username):
-    set_user_status(username, 0)  # Définir l'utilisateur comme déconnecté dans la base de données
+    try:
+        set_user_status(username, 0)  # Définir l'utilisateur comme déconnecté dans la base de données
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to update status on logout: {e}")
     chat_client.close_connection()
     window.destroy()
-    main_window.deiconify() 
+    main_window.deiconify()
+
 
 
 def on_message_received(message):
@@ -113,9 +117,10 @@ def login():
             else:
                 messagebox.showerror("Login Info", "Incorrect OTP")
         else:
-            messagebox.showerror("Login Info", "Incorrect username or password")
+            messagebox.showerror("Login Info", "Incorrect username/password or user already connected")
     except Exception as e:
         messagebox.showerror("Login Error", f"Login failed: {e}")
+
 
 def register():
     username = username_register_entry.get()
