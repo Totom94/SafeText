@@ -1,7 +1,8 @@
 import socket
 import threading
 import ssl
-from Cipher import load_public_key, encrypt_message
+from cryptography.hazmat.primitives import serialization
+from Cipher import load_public_key, load_private_key, encrypt_message, decrypt_message
 
 
 class ChatClient:
@@ -11,8 +12,9 @@ class ChatClient:
         self.username = username
         self.message_received_callback = message_received_callback
 
-        # Charger la clé publique
+        # Charger les clés publique et privée
         self.public_key = load_public_key()
+        self.private_key = load_private_key()
 
         try:
             context = ssl.create_default_context()
@@ -21,6 +23,12 @@ class ChatClient:
 
             self.sock = context.wrap_socket(socket.socket(socket.AF_INET), server_side=False)
             self.sock.connect((host, port))
+
+            # Envoyer la clé publique au serveur pour distribution
+            self.sock.sendall(
+                f"PUBLIC_KEY {self.username} {self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}".encode(
+                    'utf-8'))
+
             self.sock.sendall(self.encrypt_message(f"LOGIN {username}"))
 
             threading.Thread(target=self.receive_messages, daemon=True).start()
@@ -33,6 +41,9 @@ class ChatClient:
 
     def encrypt_message(self, message):
         return encrypt_message(message, self.public_key)
+
+    def decrypt_message(self, encrypted_message):
+        return decrypt_message(encrypted_message, self.private_key)
 
     def send_message(self, message):
         try:
@@ -48,7 +59,7 @@ class ChatClient:
                 encrypted_message = self.sock.recv(1024)
                 if not encrypted_message:
                     break
-                message = encrypted_message.decode('utf-8')
+                message = self.decrypt_message(encrypted_message)
                 if self.message_received_callback:
                     self.message_received_callback(message)
             except ssl.SSLError as e:
@@ -76,14 +87,11 @@ if __name__ == "__main__":
     host = 'localhost'
     port = 8443
     username = 'user1'
-
+    client = ChatClient(host, port, username, message_received_callback)
     try:
-        client = ChatClient(host, port, username, message_received_callback)
-
         while True:
             message = input("Enter message: ")
             client.send_message(message)
-
     except KeyboardInterrupt:
         print("Client terminated by user.")
     finally:

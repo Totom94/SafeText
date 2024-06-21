@@ -56,7 +56,6 @@ def on_closing(window, username):
     main_window.deiconify()
 
 
-
 def on_message_received(message):
     messages.insert(tk.END, f"{message}\n")
 

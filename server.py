@@ -2,17 +2,27 @@ import socket
 import ssl
 import threading
 from bdd import set_user_status, get_user_status, reset_all_user_statuses
-from Cipher import load_private_key, decrypt_message
 
 clients = {}
+public_keys = {}
 lock = threading.Lock()
 
 
+def handle_public_key(data, client_socket):
+    try:
+        parts = data.split(b' ', 2)
+        username = parts[1].decode('utf-8')
+        public_key_data = parts[2]
+        public_keys[username] = public_key_data
+        print(f"Public key received and stored for {username}")
+    except Exception as e:
+        print(f"Failed to process public key: {e}")
+
+
 def broadcast_users():
-    """Broadcast the list of users and their statuses to all clients."""
     with lock:
-        users_status = get_user_status()  # Assume this function queries the database for user statuses
-        for client_socket in list(clients.keys()):  # Use list() to iterate over a snapshot of keys
+        users_status = get_user_status()
+        for client_socket in list(clients.keys()):
             user_list = [f"{user[0]} ({'Online' if user[1] else 'Offline'})" for user in users_status]
             try:
                 client_socket.sendall(f"USERS_LIST {','.join(user_list)}".encode('utf-8'))
@@ -21,19 +31,21 @@ def broadcast_users():
                 handle_disconnect(client_socket)
 
 
-def handle_client(conn, addr, private_key):
-    """Handle each client connection."""
+def handle_client(conn, addr):
     print(f"Connected by {addr}")
     with lock:
         clients[conn] = addr
     try:
         while True:
-            encrypted_data = conn.recv(1024)
-            if not encrypted_data:
+            data = conn.recv(1024)
+            if not data:
                 break
-            print(f"Encrypted data received from {addr}: {encrypted_data}")
-            decrypted_data = decrypt_message(encrypted_data, private_key)
-            broadcast(decrypted_data, conn)
+            if data.startswith(b"PUBLIC_KEY"):
+                handle_public_key(data, conn)
+            else:
+                print(f"Data received from {addr}: {data}")
+                # Broadcast encrypted data directly
+                broadcast(data, conn)
     except ssl.SSLError as e:
         print(f"SSL error with {addr}: {e}")
     except socket.error as e:
@@ -45,7 +57,6 @@ def handle_client(conn, addr, private_key):
 
 
 def handle_disconnect(conn):
-    """Handle disconnection of a client."""
     with lock:
         if conn in clients:
             del clients[conn]
@@ -59,12 +70,11 @@ def update_clients():
 
 
 def broadcast(message, sender_socket):
-    """Send a message to all clients except the sender."""
     with lock:
         for client in clients.keys():
             if client != sender_socket:
                 try:
-                    client.sendall(message.encode('utf-8'))
+                    client.sendall(message)
                 except Exception as e:
                     print(f"Failed to send message to {client}: {e}")
 
@@ -84,13 +94,11 @@ def create_server(address):
 
 
 def main():
-    """Main entry point for the server."""
-    private_key = load_private_key()
     secure_socket = create_server(('localhost', 8443))
     try:
         while True:
             conn, addr = secure_socket.accept()
-            threading.Thread(target=handle_client, args=(conn, addr, private_key)).start()
+            threading.Thread(target=handle_client, args=(conn, addr)).start()
     except KeyboardInterrupt:
         print("Server terminated by user.")
     finally:
