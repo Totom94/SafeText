@@ -9,17 +9,19 @@ lock = threading.Lock()
 
 
 def handle_public_key(data, client_socket):
+    """Traite la réception d'une clé publique d'un client."""
     try:
         parts = data.split(b' ', 2)
         username = parts[1].decode('utf-8')
         public_key_data = parts[2]
         public_keys[username] = public_key_data
-        print(f"Public key received and stored for {username}")
+        print(f"Clé publique reçue et stockée pour {username}")
     except Exception as e:
-        print(f"Failed to process public key: {e}")
+        print(f"Échec du traitement de la clé publique : {e}")
 
 
 def broadcast_users():
+    """Diffuse la liste des utilisateurs à tous les clients."""
     with lock:
         users_status = get_user_status()
         for client_socket in list(clients.keys()):
@@ -27,12 +29,13 @@ def broadcast_users():
             try:
                 client_socket.sendall(f"USERS_LIST {','.join(user_list)}".encode('utf-8'))
             except Exception as e:
-                print(f"Error broadcasting user list to {clients[client_socket]}: {e}")
+                print(f"Erreur lors de la diffusion de la liste des utilisateurs à {clients[client_socket]}: {e}")
                 handle_disconnect(client_socket)
 
 
 def handle_client(conn, addr):
-    print(f"Connected by {addr}")
+    """Gère la connexion individuelle de chaque client."""
+    print(f"Connecté par {addr}")
     with lock:
         clients[conn] = addr
     try:
@@ -43,25 +46,26 @@ def handle_client(conn, addr):
             if data.startswith(b"PUBLIC_KEY"):
                 handle_public_key(data, conn)
             else:
-                print(f"Data received from {addr}: {data}")
-                # Broadcast encrypted data directly
+                print(f"Données reçues de {addr}: {data}")
+                # Broadcast encrypted data directement
                 broadcast(data, conn)
     except ssl.SSLError as e:
-        print(f"SSL error with {addr}: {e}")
+        print(f"Erreur SSL avec {addr}: {e}")
     except socket.error as e:
-        print(f"Socket error with {addr}: {e}")
+        print(f"Erreur de socket avec {addr}: {e}")
     except Exception as e:
-        print(f"Error with {addr}: {e}")
+        print(f"Erreur avec {addr}: {e}")
     finally:
         handle_disconnect(conn)
 
 
 def handle_disconnect(conn):
+    """Gère la déconnexion des clients."""
     with lock:
         if conn in clients:
             del clients[conn]
         conn.close()
-        print(f"Connection closed: {clients.get(conn, 'Unknown')}")
+        print(f"Connexion fermée : {clients.get(conn, 'Inconnu')}")
 
 
 def update_clients():
@@ -70,17 +74,18 @@ def update_clients():
 
 
 def broadcast(message, sender_socket):
+    """Diffuse un message à tous les clients sauf à l'expéditeur."""
     with lock:
         for client in clients.keys():
             if client != sender_socket:
                 try:
                     client.sendall(message)
                 except Exception as e:
-                    print(f"Failed to send message to {client}: {e}")
+                    print(f"Échec de l'envoi du message à {client}: {e}")
 
 
 def create_server(address):
-    """Create and configure the SSL server socket."""
+    """Crée et configure le socket serveur SSL."""
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -89,21 +94,22 @@ def create_server(address):
     secure_socket = context.wrap_socket(server_socket, server_side=True)
     secure_socket.bind(address)
     secure_socket.listen(5)
-    print(f"Server started at {address}, waiting for connections...")
+    print(f"Serveur démarré à {address}, en attente de connexions...")
     return secure_socket
 
 
 def main():
+    """Point d'entrée principal du serveur."""
     secure_socket = create_server(('localhost', 8443))
     try:
         while True:
             conn, addr = secure_socket.accept()
             threading.Thread(target=handle_client, args=(conn, addr)).start()
     except KeyboardInterrupt:
-        print("Server terminated by user.")
+        print("Serveur interrompu par l'utilisateur.")
     finally:
         secure_socket.close()
-        print("Server socket closed.")
+        print("Socket serveur fermé.")
 
 
 if __name__ == "__main__":

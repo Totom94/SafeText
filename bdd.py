@@ -7,28 +7,30 @@ EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
 
 
 def connect_db():
+    """Établit une connexion à la base de données SQLite."""
     try:
         conn = sqlite3.connect('SF.db')
         return conn
     except sqlite3.Error as e:
-        print(f"Error connecting to database: {e}")
+        print(f"Erreur de connexion à la base de données : {e}")
 
 
 def update_db():
+    """Met à jour la base de données en ajoutant une colonne otp_secret."""
     try:
         conn = connect_db()
         if conn is not None:
             cur = conn.cursor()
             cur.execute("ALTER TABLE Users ADD COLUMN otp_secret TEXT")
             conn.commit()
-            print("Database updated successfully.")
+            print("Base de données mise à jour avec succès.")
         else:
             print("Error! cannot create the database connection.")
     except sqlite3.Error as e:
         if "duplicate column name: otp_secret" in str(e):
-            print("Column 'otp_secret' already exists.")
+            print("La colonne 'otp_secret' existe déjà.")
         else:
-            print(f"An error occurred: {e}")
+            print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()

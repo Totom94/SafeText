@@ -1,6 +1,5 @@
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
-import os
 
 # Chemins globaux des clés
 PRIVATE_KEY_PATH = "C:\\Users\\tomgo\\ssl\\private_key.pem"
@@ -8,6 +7,7 @@ PUBLIC_KEY_PATH = "C:\\Users\\tomgo\\ssl\\public_key.pem"
 
 
 def load_public_key():
+    """Charge la clé publique depuis un fichier PEM."""
     try:
         with open(PUBLIC_KEY_PATH, "rb") as key_file:
             public_key = serialization.load_pem_public_key(key_file.read())
@@ -15,10 +15,11 @@ def load_public_key():
         return public_key
     except Exception as e:
         print(f"Erreur lors du chargement de la clé publique : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise  # Propagation de l'exception pour une gestion externe
 
 
 def load_private_key():
+    """Charge la clé privée depuis un fichier PEM."""
     try:
         with open(PRIVATE_KEY_PATH, "rb") as key_file:
             private_key = serialization.load_pem_private_key(key_file.read(), password=None)
@@ -26,10 +27,11 @@ def load_private_key():
         return private_key
     except Exception as e:
         print(f"Erreur lors du chargement de la clé privée : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise  # Propagation de l'exception pour une gestion externe
 
 
 def encrypt_message(message, public_key):
+    """Chiffre un message avec la clé publique spécifiée."""
     try:
         encrypted = public_key.encrypt(
             message.encode('utf-8'),
@@ -39,14 +41,15 @@ def encrypt_message(message, public_key):
                 label=None
             )
         )
-        print(f"Message encrypté : {encrypted}")
+        print(f"Message chiffré  : {encrypted}")
         return encrypted
     except Exception as e:
         print(f"Erreur lors du chiffrement du message : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise  # Propagation de l'exception pour une gestion externe
 
 
 def decrypt_message(encrypted_message, private_key):
+    """Déchiffre un message avec la clé privée spécifiée."""
     try:
         decrypted = private_key.decrypt(
             encrypted_message,
@@ -59,7 +62,7 @@ def decrypt_message(encrypted_message, private_key):
         return decrypted.decode('utf-8')
     except Exception as e:
         print(f"Erreur lors du déchiffrement du message : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise  # Propagation de l'exception pour une gestion externe
 
 
 if __name__ == "__main__":
