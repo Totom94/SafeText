@@ -1,12 +1,17 @@
 import socket
 import threading
 import ssl
+import logging
+from logger import setup_logging
 from cryptography.hazmat.primitives import serialization
+from message_history import log_message
 from Cipher import load_public_key, load_private_key, encrypt_message, decrypt_message
 
 
 class ChatClient:
     def __init__(self, host, port, username, message_received_callback):
+        setup_logging()
+        logging.info(f"Tentative de connexion au serveur {host}:{port} en tant que {username}")
         self.host = host
         self.port = port
         self.username = username
@@ -53,8 +58,10 @@ class ChatClient:
             if message:
                 encrypted_message = self.encrypt_message(message)
                 self.sock.sendall(encrypted_message)
+                logging.info(f"Message envoyé : {message}")
+                log_message(self.username, message, 'server')
         except Exception as e:
-            print(f"Erreur lors de l'envoi du message : {e}")
+            logging.error(f"Erreur lors de l'envoi du message : {e}")
 
     def receive_messages(self):
         """Reçoit les messages du serveur et les déchiffre."""
@@ -64,6 +71,8 @@ class ChatClient:
                 if not encrypted_message:
                     break
                 message = self.decrypt_message(encrypted_message)
+                log_message('server', message,
+                            self.username)  # 'server' ou le nom d'utilisateur expéditeur si applicable
                 print(f"Message déchiffré reçu: {message}")  # Affichage du message déchiffré
                 if self.message_received_callback:
                     self.message_received_callback(message)
@@ -74,7 +83,7 @@ class ChatClient:
                 print(f"Erreur de socket : {e}")
                 break
             except Exception as e:
-                print(f"Erreur lors de la réception du message : {e}")
+                logging.error(f"Erreur lors de la réception du message : {e}")
                 break
 
     def close_connection(self):
@@ -90,6 +99,7 @@ def message_received_callback(message):
 
 
 if __name__ == "__main__":
+    setup_logging()
     host = 'localhost'
     port = 8443
     username = 'user1'

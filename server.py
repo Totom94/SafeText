@@ -1,7 +1,10 @@
 import socket
 import ssl
 import threading
-from bdd import set_user_status, get_user_status, reset_all_user_statuses
+import logging
+from logger import setup_logging
+from message_history import log_message
+from bdd import get_user_status, reset_all_user_statuses
 
 clients = {}
 public_keys = {}
@@ -34,8 +37,7 @@ def broadcast_users():
 
 
 def handle_client(conn, addr):
-    """Gère la connexion individuelle de chaque client."""
-    print(f"Connecté par {addr}")
+    logging.info(f"Connecté par {addr}")
     with lock:
         clients[conn] = addr
     try:
@@ -46,26 +48,24 @@ def handle_client(conn, addr):
             if data.startswith(b"PUBLIC_KEY"):
                 handle_public_key(data, conn)
             else:
-                print(f"Données reçues de {addr}: {data}")
-                # Broadcast encrypted data directement
+                logging.info(f"Données reçues de {addr}: {data}")
                 broadcast(data, conn)
     except ssl.SSLError as e:
-        print(f"Erreur SSL avec {addr}: {e}")
+        logging.error(f"Erreur SSL avec {addr}: {e}")
     except socket.error as e:
-        print(f"Erreur de socket avec {addr}: {e}")
+        logging.error(f"Erreur de socket avec {addr}: {e}")
     except Exception as e:
-        print(f"Erreur avec {addr}: {e}")
+        logging.error(f"Erreur avec {addr}: {e}")
     finally:
         handle_disconnect(conn)
 
 
 def handle_disconnect(conn):
-    """Gère la déconnexion des clients."""
     with lock:
         if conn in clients:
             del clients[conn]
         conn.close()
-        print(f"Connexion fermée : {clients.get(conn, 'Inconnu')}")
+        logging.info(f"Connexion fermée : {clients.get(conn, 'Inconnu')}")
 
 
 def update_clients():
@@ -80,6 +80,7 @@ def broadcast(message, sender_socket):
             if client != sender_socket:
                 try:
                     client.sendall(message)
+                    log_message(sender_socket.getpeername()[0], message, client.getpeername()[0])
                 except Exception as e:
                     print(f"Échec de l'envoi du message à {client}: {e}")
 
@@ -99,7 +100,8 @@ def create_server(address):
 
 
 def main():
-    """Point d'entrée principal du serveur."""
+    setup_logging()  # Configure le logging au démarrage du serveur
+    logging.info("Démarrage du serveur")
     secure_socket = create_server(('localhost', 8443))
     try:
         while True:
