@@ -1,6 +1,7 @@
 import sqlite3
 import re  # Module pour les expressions régulières
 import pyotp
+import bcrypt  # Module pour le hachage sécurisé des mots de passe
 
 # Expression régulière pour valider l'email
 EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
@@ -37,8 +38,9 @@ def update_db():
 
 
 def create_user(pseudo, email, password):
-    otp_secret = pyotp.random_base32()
     import re
+    otp_secret = pyotp.random_base32()
+
     # Vérification du format de l'email
     if not re.match(EMAIL_REGEX, email):
         raise ValueError("Format d'email incorrect. L'email doit contenir '@' et se terminer par '.com', '.fr', etc.")
@@ -57,20 +59,26 @@ def create_user(pseudo, email, password):
             if existing_user:
                 raise RuntimeError("Un utilisateur avec le même pseudo ou email existe déjà.")
 
+            # Générer un sel aléatoire
+            salt = bcrypt.gensalt()
+
+            # Hacher le mot de passe avec le sel
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+
             # Insérer le nouvel utilisateur s'il n'existe pas encore
             cur.execute("INSERT INTO Users (pseudo, email, password, otp_secret, is_connected) VALUES (?, ?, ?, ?, ?)",
-                        (pseudo, email, password, otp_secret, 0))
+                        (pseudo, email, hashed_password.decode('utf-8'), otp_secret, 0))
             conn.commit()
-            print("User created successfully.")
+            print("Utilisateur créé avec succès.")
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
         return otp_secret
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     except ValueError as ve:
-        print(f"ValueError: {ve}")
+        print(f"Erreur de valeur : {ve}")
     except RuntimeError as re:
-        print(f"RuntimeError: {re}")
+        print(f"Erreur d'exécution : {re}")
     finally:
         if conn:
             conn.close()
@@ -82,16 +90,20 @@ def authenticate_user(pseudo, password):
         if conn is not None:
             cur = conn.cursor()
             # Vérifier si l'utilisateur est déjà connecté
-            cur.execute("SELECT * FROM Users WHERE pseudo = ? AND password = ? AND is_connected = 0",
-                        (pseudo, password))
+            cur.execute("SELECT * FROM Users WHERE pseudo = ?", (pseudo,))
             user = cur.fetchone()
             if user:
-                set_user_status(pseudo, 1)  # Définir l'utilisateur comme connecté
-            return user
+                # Vérifier si le mot de passe correspond
+                hashed_password = user[3]  # Récupérer le mot de passe haché depuis la base de données
+                if bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8')):
+                    set_user_status(pseudo, 1)  # Définir l'utilisateur comme connecté
+                    return user
+            else:
+                print("Utilisateur non trouvé.")
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
@@ -107,15 +119,16 @@ def get_user_otp_secret(pseudo):
             result = cur.fetchone()
             if result:
                 return result[0]
+            else:
+                print("Utilisateur non trouvé.")
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
     return None
-
 
 def init_db():
     try:
@@ -132,11 +145,11 @@ def init_db():
                 is_connected INTEGER DEFAULT 0
             )""")
             conn.commit()
-            print("Database initialized successfully.")
+            print("Base de données initialisée avec succès.")
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred while initializing the database: {e}")
+        print(f"Une erreur s'est produite lors de l'initialisation de la base de données : {e}")
     finally:
         if conn:
             conn.close()
@@ -150,9 +163,9 @@ def set_user_status(username, status):
             cur.execute("UPDATE Users SET is_connected = ? WHERE pseudo = ?", (status, username))
             conn.commit()
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
@@ -166,13 +179,14 @@ def get_user_status():
             cur.execute("SELECT pseudo, is_connected FROM Users")
             return cur.fetchall()
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
     return []
+
 
 
 def get_connected_users():
@@ -180,12 +194,12 @@ def get_connected_users():
         conn = connect_db()
         if conn is not None:
             cur = conn.cursor()
-            cur.execute("SELECT pseudo, is_connected FROM Users")
+            cur.execute("SELECT pseudo, is_connected FROM Users WHERE is_connected = 1")
             return cur.fetchall()
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
@@ -199,11 +213,11 @@ def reset_all_user_statuses():
             cur = conn.cursor()
             cur.execute("UPDATE Users SET is_connected = 0")
             conn.commit()
-            print("All user statuses reset to offline.")
+            print("Tous les statuts d'utilisateur ont été réinitialisés à hors ligne.")
         else:
-            print("Error! cannot create the database connection.")
+            print("Erreur! Impossible de créer la connexion à la base de données.")
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        print(f"Une erreur s'est produite : {e}")
     finally:
         if conn:
             conn.close()
