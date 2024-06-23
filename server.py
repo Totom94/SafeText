@@ -75,14 +75,16 @@ def update_clients():
 
 def broadcast(message, sender_socket):
     """Diffuse un message à tous les clients sauf à l'expéditeur."""
+    sender = clients[sender_socket]  # Get sender username or identifier from socket
     with lock:
-        for client in clients.keys():
+        for client, address in clients.items():
             if client != sender_socket:
+                recipient = clients[client]  # Get recipient username or identifier
                 try:
                     client.sendall(message)
-                    log_message(sender_socket.getpeername()[0], message, client.getpeername()[0])
+                    log_message(sender, message.decode('utf-8'), recipient)  # Log directly from sender to recipient
                 except Exception as e:
-                    print(f"Échec de l'envoi du message à {client}: {e}")
+                    print(f"Échec de l'envoi du message à {recipient}: {e}")
 
 
 def create_server(address):

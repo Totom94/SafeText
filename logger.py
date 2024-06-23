@@ -1,6 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from datetime import datetime
 
 
 def setup_logging():
@@ -19,9 +20,12 @@ def setup_logging():
     # Configuration du logger racine
     logging.basicConfig(level=logging.INFO, format=log_format)
 
+    # Générer un nom de fichier unique avec timestamp
+    log_filename = datetime.now().strftime("%Y%m%d_%H%M%S") + "_chatbox.log"
+
     # Configuration du handler pour écrire dans un fichier avec rotation
     handler = RotatingFileHandler(
-        f"{log_dir}/chatbox.log",
+        f"{log_dir}/{log_filename}",
         maxBytes=5*1024*1024,  # 5 MB
         backupCount=5
     )

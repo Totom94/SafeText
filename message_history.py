@@ -8,11 +8,20 @@ if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
 
-def log_message(user, message, destination):
-    filename = os.path.join(log_dir, f"{user}_messages.txt")
-    with open(filename, 'a') as file:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        file.write(f"{timestamp} - From: {user} To: {destination} - {message}\n")
+def log_message(sender, message, recipient):
+    # Ensures log files are named after each user and logs the direct exchange between users
+    sender_filename = os.path.join(log_dir, f"{sender}_messages.txt")
+    recipient_filename = os.path.join(log_dir, f"{recipient}_messages.txt")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp} - From: {sender} To: {recipient} - {message}\n"
+
+    # Log to sender's file
+    with open(sender_filename, 'a') as sender_file:
+        sender_file.write(log_entry)
+
+    # Log to recipient's file
+    with open(recipient_filename, 'a') as recipient_file:
+        recipient_file.write(log_entry)
 
 
 def delete_old_logs():
