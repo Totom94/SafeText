@@ -114,16 +114,19 @@ def register():
     username = username_register_entry.get()
     email = email_register_entry.get()
     password = password_register_entry.get()
-    # Perform email and password validation
-    if not username or not email or not password:
-        messagebox.showerror("Register Info", "Username, email, and password are required.")
+
+    # Vérification de la validité de l'email et du mot de passe
+    if not username or not email or not password or password == 'Password':
+        messagebox.showerror("Register Info", "Username, email, and a valid password are required.")
         return
-    if '@' not in email or not email.endswith(('.com', '.fr', '.org')):  # Example validation
+    if '@' not in email or not email.endswith(('.com', '.fr', '.org')):  # Validation de l'email (exemple)
         messagebox.showerror("Register Info", "Invalid email format")
         return
     if len(password) < 8:
         messagebox.showerror("Register Info", "Password must be at least 8 characters long")
         return
+
+    # Création de l'utilisateur dans la base de données
     otp_secret = create_user(username, email, password)
     totp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="SafeText")
     qr = qrcode.make(totp_uri)
@@ -132,6 +135,8 @@ def register():
     messagebox.showinfo("Register Info", f"Account created successfully. Scan the QR code with your authenticator app.")
     show_login_frame()
     show_qr_code_window(qr_path)
+
+
 
 
 def show_qr_code_window(qr_path):
@@ -334,7 +339,6 @@ Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=253)
 button_register = Button(register_frame, width=40, pady=3, text='Register', bg="#ACABAB", fg='#D99D28', border=0,
                          command=register)
 button_register.place(x=25, y=285)
-
 
 
 main_window.mainloop()
