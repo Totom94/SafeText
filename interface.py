@@ -114,6 +114,16 @@ def register():
     username = username_register_entry.get()
     email = email_register_entry.get()
     password = password_register_entry.get()
+    # Perform email and password validation
+    if not username or not email or not password:
+        messagebox.showerror("Register Info", "Username, email, and password are required.")
+        return
+    if '@' not in email or not email.endswith(('.com', '.fr', '.org')):  # Example validation
+        messagebox.showerror("Register Info", "Invalid email format")
+        return
+    if len(password) < 8:
+        messagebox.showerror("Register Info", "Password must be at least 8 characters long")
+        return
     otp_secret = create_user(username, email, password)
     totp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="SafeText")
     qr = qrcode.make(totp_uri)
@@ -237,7 +247,7 @@ def on_leave(e):
         password_login_entry.insert(0, 'Password')
 
 
-password_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+password_login_entry = Entry(login_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
 password_login_entry.place(x=20, y=150)
 password_login_entry.insert(0, 'Password')
 password_login_entry.bind("<FocusIn>", on_enter)
@@ -251,12 +261,12 @@ def on_enter(e):
 
 def on_leave(e):
     if otp_login_entry.get() == '':
-        otp_login_entry.insert(0, 'OPT')
+        otp_login_entry.insert(0, 'OTP')
 
 
 otp_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
 otp_login_entry.place(x=20, y=220)
-otp_login_entry.insert(0, 'OPT')
+otp_login_entry.insert(0, 'OTP')
 otp_login_entry.bind("<FocusIn>", on_enter)
 otp_login_entry.bind("<FocusOut>", on_leave)
 Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=253)
@@ -314,7 +324,7 @@ def on_leave(e):
         password_register_entry.insert(0, 'Password')
 
 
-password_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+password_register_entry = Entry(register_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
 password_register_entry.place(x=20, y=220)
 password_register_entry.insert(0, 'Password', )
 password_register_entry.bind("<FocusIn>", on_enter)
@@ -324,5 +334,7 @@ Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=253)
 button_register = Button(register_frame, width=40, pady=3, text='Register', bg="#ACABAB", fg='#D99D28', border=0,
                          command=register)
 button_register.place(x=25, y=285)
+
+
 
 main_window.mainloop()
