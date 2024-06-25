@@ -37,9 +37,9 @@ def broadcast_users():
 
 
 def handle_client(conn, addr):
-    logging.info(f"Connecté par {addr}")
     with lock:
         clients[conn] = addr
+    logging.info(f"Connecté par {addr}")
     try:
         while True:
             data = conn.recv(1024)
@@ -51,12 +51,13 @@ def handle_client(conn, addr):
                 logging.info(f"Données reçues de {addr}: {data}")
                 broadcast(data, conn)
     except ssl.SSLError as e:
-        logging.error(f"Erreur SSL avec {addr}: {e}")
+        logging.error(f"Erreur avec {addr}: {e}")
     except socket.error as e:
         logging.error(f"Erreur de socket avec {addr}: {e}")
     except Exception as e:
         logging.error(f"Erreur avec {addr}: {e}")
     finally:
+        logging.info("Connexion fermée.")
         handle_disconnect(conn)
 
 
@@ -75,16 +76,14 @@ def update_clients():
 
 def broadcast(message, sender_socket):
     """Diffuse un message à tous les clients sauf à l'expéditeur."""
-    sender = clients[sender_socket]  # Get sender username or identifier from socket
     with lock:
-        for client, address in clients.items():
+        for client in clients:
             if client != sender_socket:
-                recipient = clients[client]  # Get recipient username or identifier
                 try:
                     client.sendall(message)
-                    log_message(sender, message.decode('utf-8'), recipient)  # Log directly from sender to recipient
                 except Exception as e:
-                    print(f"Échec de l'envoi du message à {recipient}: {e}")
+                    print(f"Échec de l'envoi du message à {clients[client]}: {e}")
+                    handle_disconnect(client)
 
 
 def create_server(address):

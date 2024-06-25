@@ -35,5 +35,4 @@ def setup_logging():
     logging.info("Configuration de journalisation établie.")
 
 
-# Appel de la fonction de configuration lors de l'import du module
 setup_logging()
