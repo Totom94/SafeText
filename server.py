@@ -1,14 +1,30 @@
 import socket
 import ssl
+import sys
 import threading
+import subprocess
+import os
 import logging
+
 from logger import setup_logging
 from message_history import log_message
 from bdd import get_user_status, reset_all_user_statuses
 
+
 clients = {}
 public_keys = {}
 lock = threading.Lock()
+
+
+def reset_auth_status():
+    with open('auth_status.txt', 'w') as f:
+        f.write('')
+
+
+# Démarre le serveur Flask pour OAuth
+def start_auth_server():
+    auth_server_path = os.path.join(os.path.dirname(__file__), 'auth_server.py')
+    subprocess.Popen([sys.executable, auth_server_path])
 
 
 def handle_public_key(data, client_socket):
@@ -103,6 +119,10 @@ def create_server(address):
 def main():
     setup_logging()  # Configure le logging au démarrage du serveur
     logging.info("Démarrage du serveur")
+
+    # Démarre le serveur OAuth dans un thread séparé
+    threading.Thread(target=start_auth_server).start()
+
     secure_socket = create_server(('localhost', 8443))
     try:
         while True:
@@ -117,4 +137,5 @@ def main():
 
 if __name__ == "__main__":
     reset_all_user_statuses()
+    reset_auth_status()
     main()

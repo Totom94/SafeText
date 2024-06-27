@@ -130,6 +130,7 @@ def get_user_otp_secret(pseudo):
             conn.close()
     return None
 
+
 def init_db():
     try:
         conn = connect_db()
@@ -186,7 +187,6 @@ def get_user_status():
         if conn:
             conn.close()
     return []
-
 
 
 def get_connected_users():

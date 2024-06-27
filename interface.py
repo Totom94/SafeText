@@ -1,45 +1,64 @@
 import tkinter as tk
+import pyotp
+import qrcode
+import os
+import webbrowser
+
 from tkinter import scrolledtext, Button, Label, Frame, Entry, messagebox, Listbox, PhotoImage
 from pathlib import Path
 from client import ChatClient
 from bdd import authenticate_user, create_user, get_connected_users, set_user_status, get_user_otp_secret
-import pyotp
-import qrcode
+from auth_server import get_authorized_emails
+
+
+def check_authentication():
+    """Vérifie si l'utilisateur est authentifié en lisant le fichier auth_status.txt"""
+    if os.path.exists('auth_status.txt'):
+        with open('auth_status.txt', 'r') as f:
+            email = f.read().strip()
+        if email in get_authorized_emails():
+            return email
+    return None
 
 
 def open_chat_window(username):
     global chat_client, messages, entry, user_list
-    chat_client = ChatClient('localhost', 8443, username, on_message_received)
-    main_window.withdraw()  # Cache la fenêtre principale
+    email = check_authentication()
+    if email:
+        chat_client = ChatClient('localhost', 8443, username, on_message_received)
+        main_window.withdraw()  # Cache la fenêtre principale
 
-    chat_window = tk.Toplevel(main_window)
-    chat_window.title("SafeText")
-    chat_window.geometry("600x700")
+        chat_window = tk.Toplevel(main_window)
+        chat_window.title("SafeText")
+        chat_window.geometry("600x700")
 
-    icon_path = Path(__file__).parent / "safetext.png"
-    if icon_path.exists():
-        chat_window.iconbitmap(str(icon_path))
+        icon_path = Path(__file__).parent / "safetext.png"
+        if icon_path.exists():
+            chat_window.iconbitmap(str(icon_path))
 
-    Label(chat_window, text=f"Connecté en tant que: {username}").pack(pady=10)
+        Label(chat_window, text=f"Connecté en tant que: {username}").pack(pady=10)
 
-    messages = scrolledtext.ScrolledText(chat_window)
-    messages.pack(expand=True, fill='both', padx=20, pady=5)
+        messages = scrolledtext.ScrolledText(chat_window)
+        messages.pack(expand=True, fill='both', padx=20, pady=5)
 
-    user_list = Listbox(chat_window, width=30)
-    user_list.pack(side="right", fill="y", padx=(0, 20))
+        user_list = Listbox(chat_window, width=30)
+        user_list.pack(side="right", fill="y", padx=(0, 20))
 
-    entry_frame = Frame(chat_window)
-    entry = Entry(entry_frame)
-    entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        entry_frame = Frame(chat_window)
+        entry = Entry(entry_frame)
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-    send_button = Button(entry_frame, text="Envoyer", command=send_message)
-    send_button.pack(side="right")
+        send_button = Button(entry_frame, text="Envoyer", command=send_message)
+        send_button.pack(side="right")
 
-    entry_frame.pack(fill="x", padx=20, pady=10)
+        entry_frame.pack(fill="x", padx=20, pady=10)
 
-    chat_window.protocol("WM_DELETE_WINDOW",
-                         lambda: on_closing(chat_window, username))  # Gérer la fermeture de la fenêtre
-    update_user_list_periodically(chat_window)
+        chat_window.protocol("WM_DELETE_WINDOW",
+                             lambda: on_closing(chat_window, username))  # Gérer la fermeture de la fenêtre
+        update_user_list_periodically(chat_window)
+    else:
+        messagebox.showerror("Access Denied", "You must authenticate first.")
+        webbrowser.open("http://localhost:5000")
 
 
 def on_closing(window, username):
@@ -137,8 +156,6 @@ def register():
     show_qr_code_window(qr_path)
 
 
-
-
 def show_qr_code_window(qr_path):
     qr_window = tk.Toplevel(main_window)
     qr_window.title("Scan QR Code")
@@ -181,164 +198,169 @@ def custom():
         button_mode = True
 
 
-# Configuration de la fenêtre principale Tkinter
-main_window = tk.Tk()
-main_window.title("SafeText")
-main_window.geometry("800x600")
-main_window.configure(bg='#545050')
-main_window.resizable(False, False)
-text = tk.StringVar()
-icon_path = Path(__file__).parent / "C:/Users/tomgo/Downloads/icone.ico"
-if icon_path.exists():
-    main_window.iconbitmap(str(icon_path))
+# Vérifier l'authentification avant de lancer l'application principale
+email = check_authentication()
+if email:
+    # Configuration de la fenêtre principale Tkinter
+    main_window = tk.Tk()
+    main_window.title("SafeText")
+    main_window.geometry("800x600")
+    main_window.configure(bg='#545050')
+    main_window.resizable(False, False)
+    text = tk.StringVar()
+    icon_path = Path(__file__).parent / "C:/Users/tomgo/Downloads/icone.ico"
+    if icon_path.exists():
+        main_window.iconbitmap(str(icon_path))
 
-# Photo du coin
-imgs = PhotoImage(file="login2.png")
-imgs1 = PhotoImage(file="login2_light.png")
-photo_label = Label(main_window, image=imgs, border=0)
-photo_label.place(x=10, y=170)
-
-
-# CONFIGURATION DU FORMULAIRE
-
-# En-tete du Formulaire
-entete = Frame(main_window, width=800, height=150, padx=10, bg="#545050")
-entete.pack()
-
-# Changement de theme
-on = PhotoImage(file="Dark1.PNG")
-off = PhotoImage(file="Light1.PNG")
-theme = Button(entete, bg='#545050', image=on, bd=0, activebackground="#545050", command=custom)
-theme.place(x=5, y=15)
-
-register_button = Button(entete, border=0, text="Register", bg="#545050", font=("Verdana", 20, "bold"),
-                         command=show_register_frame)
-register_button.place(x=180, y=50)
-login_button = Button(entete, border=0, text="Login", bg="#545050", font=("Verdana", 20, "bold"),
-                      command=show_login_frame)
-login_button.place(x=500, y=50)
-bare = Frame(entete, width=90, height=5, bg='black')
+    # Photo du coin
+    imgs = PhotoImage(file="login2.png")
+    imgs1 = PhotoImage(file="login2_light.png")
+    photo_label = Label(main_window, image=imgs, border=0)
+    photo_label.place(x=10, y=170)
 
 
-# FENETRE CONNEXION
+    # CONFIGURATION DU FORMULAIRE
 
-login_frame = Frame(main_window, width=350, height=390, bg='#E9B429')
-login_frame.place(x=440, y=170)
+    # En-tete du Formulaire
+    entete = Frame(main_window, width=800, height=150, padx=10, bg="#545050")
+    entete.pack()
 
+    # Changement de theme
+    on = PhotoImage(file="Dark1.PNG")
+    off = PhotoImage(file="Light1.PNG")
+    theme = Button(entete, bg='#545050', image=on, bd=0, activebackground="#545050", command=custom)
+    theme.place(x=5, y=15)
 
-def on_enter(e):
-    username_login_entry.delete(0, 'end')
-
-
-def on_leave(e):
-    if username_login_entry.get() == '':
-        username_login_entry.insert(0, 'Username')
-
-
-username_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
-username_login_entry.place(x=20, y=80)
-username_login_entry.insert(0, 'Username', )
-username_login_entry.bind("<FocusIn>", on_enter)
-username_login_entry.bind("<FocusOut>", on_leave)
-Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=113)
+    register_button = Button(entete, border=0, text="Register", bg="#545050", font=("Verdana", 20, "bold"),
+                             command=show_register_frame)
+    register_button.place(x=180, y=50)
+    login_button = Button(entete, border=0, text="Login", bg="#545050", font=("Verdana", 20, "bold"),
+                          command=show_login_frame)
+    login_button.place(x=500, y=50)
+    bare = Frame(entete, width=90, height=5, bg='black')
 
 
-def on_enter(e):
-    password_login_entry.delete(0, 'end')
+    # FENETRE CONNEXION
+
+    login_frame = Frame(main_window, width=350, height=390, bg='#E9B429')
+    login_frame.place(x=440, y=170)
 
 
-def on_leave(e):
-    if password_login_entry.get() == '':
-        password_login_entry.insert(0, 'Password')
+    def on_enter(e):
+        username_login_entry.delete(0, 'end')
 
 
-password_login_entry = Entry(login_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
-password_login_entry.place(x=20, y=150)
-password_login_entry.insert(0, 'Password')
-password_login_entry.bind("<FocusIn>", on_enter)
-password_login_entry.bind("<FocusOut>", on_leave)
-Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=183)
+    def on_leave(e):
+        if username_login_entry.get() == '':
+            username_login_entry.insert(0, 'Username')
 
 
-def on_enter(e):
-    otp_login_entry.delete(0, 'end')
+    username_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+    username_login_entry.place(x=20, y=80)
+    username_login_entry.insert(0, 'Username', )
+    username_login_entry.bind("<FocusIn>", on_enter)
+    username_login_entry.bind("<FocusOut>", on_leave)
+    Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=113)
 
 
-def on_leave(e):
-    if otp_login_entry.get() == '':
-        otp_login_entry.insert(0, 'OTP')
+    def on_enter(e):
+        password_login_entry.delete(0, 'end')
 
 
-otp_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
-otp_login_entry.place(x=20, y=220)
-otp_login_entry.insert(0, 'OTP')
-otp_login_entry.bind("<FocusIn>", on_enter)
-otp_login_entry.bind("<FocusOut>", on_leave)
-Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=253)
-button_login = Button(login_frame, width=40, pady=3, text='Sign Up', bg="#ACABAB", fg='#D99D28', border=0,
-                      command=login)
-button_login.place(x=25, y=285)
+    def on_leave(e):
+        if password_login_entry.get() == '':
+            password_login_entry.insert(0, 'Password')
 
 
-# FENETRE INSCRIPTION
-
-register_frame = tk.Frame(main_window, width=350, height=390, bg='#E9B429')
-register_frame.place(x=440, y=170)
-
-
-def on_enter(e):
-    username_register_entry.delete(0, 'end')
+    password_login_entry = Entry(login_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
+    password_login_entry.place(x=20, y=150)
+    password_login_entry.insert(0, 'Password')
+    password_login_entry.bind("<FocusIn>", on_enter)
+    password_login_entry.bind("<FocusOut>", on_leave)
+    Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=183)
 
 
-def on_leave(e):
-    if username_register_entry.get() == '':
-        username_register_entry.insert(0, 'Username')
+    def on_enter(e):
+        otp_login_entry.delete(0, 'end')
 
 
-username_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
-username_register_entry.place(x=20, y=80)
-username_register_entry.insert(0, 'Username', )
-username_register_entry.bind("<FocusIn>", on_enter)
-username_register_entry.bind("<FocusOut>", on_leave)
-Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=113)
+    def on_leave(e):
+        if otp_login_entry.get() == '':
+            otp_login_entry.insert(0, 'OTP')
 
 
-def on_enter(e):
-    email_register_entry.delete(0, 'end')
+    otp_login_entry = Entry(login_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+    otp_login_entry.place(x=20, y=220)
+    otp_login_entry.insert(0, 'OTP')
+    otp_login_entry.bind("<FocusIn>", on_enter)
+    otp_login_entry.bind("<FocusOut>", on_leave)
+    Frame(login_frame, width=295, height=2, bg='black').place(x=20, y=253)
+    button_login = Button(login_frame, width=40, pady=3, text='Sign Up', bg="#ACABAB", fg='#D99D28', border=0,
+                          command=login)
+    button_login.place(x=25, y=285)
 
 
-def on_leave(e):
-    if email_register_entry.get() == '':
-        email_register_entry.insert(0, 'E-mail')
+    # FENETRE INSCRIPTION
+
+    register_frame = tk.Frame(main_window, width=350, height=390, bg='#E9B429')
+    register_frame.place(x=440, y=170)
 
 
-email_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
-email_register_entry.place(x=20, y=150)
-email_register_entry.insert(0, 'E-mail', )
-email_register_entry.bind("<FocusIn>", on_enter)
-email_register_entry.bind("<FocusOut>", on_leave)
-Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=183)
+    def on_enter(e):
+        username_register_entry.delete(0, 'end')
 
 
-def on_enter(e):
-    password_register_entry.delete(0, 'end')
+    def on_leave(e):
+        if username_register_entry.get() == '':
+            username_register_entry.insert(0, 'Username')
 
 
-def on_leave(e):
-    if password_register_entry.get() == '':
-        password_register_entry.insert(0, 'Password')
+    username_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+    username_register_entry.place(x=20, y=80)
+    username_register_entry.insert(0, 'Username', )
+    username_register_entry.bind("<FocusIn>", on_enter)
+    username_register_entry.bind("<FocusOut>", on_leave)
+    Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=113)
 
 
-password_register_entry = Entry(register_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
-password_register_entry.place(x=20, y=220)
-password_register_entry.insert(0, 'Password', )
-password_register_entry.bind("<FocusIn>", on_enter)
-password_register_entry.bind("<FocusOut>", on_leave)
-Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=253)
-
-button_register = Button(register_frame, width=40, pady=3, text='Register', bg="#ACABAB", fg='#D99D28', border=0,
-                         command=register)
-button_register.place(x=25, y=285)
+    def on_enter(e):
+        email_register_entry.delete(0, 'end')
 
 
-main_window.mainloop()
+    def on_leave(e):
+        if email_register_entry.get() == '':
+            email_register_entry.insert(0, 'E-mail')
+
+
+    email_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+    email_register_entry.place(x=20, y=150)
+    email_register_entry.insert(0, 'E-mail', )
+    email_register_entry.bind("<FocusIn>", on_enter)
+    email_register_entry.bind("<FocusOut>", on_leave)
+    Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=183)
+
+
+    def on_enter(e):
+        password_register_entry.delete(0, 'end')
+
+
+    def on_leave(e):
+        if password_register_entry.get() == '':
+            password_register_entry.insert(0, 'Password')
+
+
+    password_register_entry = Entry(register_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
+    password_register_entry.place(x=20, y=220)
+    password_register_entry.insert(0, 'Password', )
+    password_register_entry.bind("<FocusIn>", on_enter)
+    password_register_entry.bind("<FocusOut>", on_leave)
+    Frame(register_frame, width=295, height=2, bg='black').place(x=20, y=253)
+
+    button_register = Button(register_frame, width=40, pady=3, text='Register', bg="#ACABAB", fg='#D99D28', border=0,
+                             command=register)
+    button_register.place(x=25, y=285)
+
+    main_window.mainloop()
+else:
+    webbrowser.open("http://localhost:5000")
+    messagebox.showinfo("Authentication Required", "Please authenticate via the web page before accessing the chat.")
