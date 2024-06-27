@@ -5,7 +5,6 @@ import threading
 import subprocess
 import os
 import logging
-
 from logger import setup_logging
 from message_history import log_message
 from bdd import get_user_status, reset_all_user_statuses

@@ -1,5 +1,4 @@
 import os
-
 from flask import Flask, redirect, url_for, session, abort
 from authlib.integrations.flask_client import OAuth
 
@@ -11,8 +10,8 @@ app.secret_key = os.urandom(24)
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id='348387049860-n0v6ilcrhu2f7cupfc6ontfg91fgckp1.apps.googleusercontent.com',
-    client_secret='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',
+    client_id='CLIENT_ID',
+    client_secret='CLIENT_SECRET',
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'},
 )

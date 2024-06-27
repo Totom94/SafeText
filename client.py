@@ -2,7 +2,6 @@ import socket
 import threading
 import ssl
 import logging
-
 from logger import setup_logging
 from cryptography.hazmat.primitives import serialization
 from message_history import log_message

@@ -3,7 +3,6 @@ import pyotp
 import qrcode
 import os
 import webbrowser
-
 from tkinter import scrolledtext, Button, Label, Frame, Entry, messagebox, Listbox, PhotoImage
 from pathlib import Path
 from client import ChatClient
