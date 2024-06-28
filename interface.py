@@ -33,7 +33,7 @@ def open_chat_window(username):
             chat_window.title("SafeText")
             chat_window.geometry("600x700")
 
-            icon_path = Path(__file__).parent / "safetext.png"
+            icon_path = Path(__file__).parent / "safetext.ico"
             if icon_path.exists():
                 chat_window.iconbitmap(str(icon_path))
 
@@ -267,7 +267,8 @@ if email:
     main_window.configure(bg='#545050')
     main_window.resizable(False, False)
     text = tk.StringVar()
-    icon_path = Path(__file__).parent / "C:/Users/tomgo/Downloads/icone.ico"
+
+    icon_path = Path(__file__).parent / "safetext.ico"
     if icon_path.exists():
         main_window.iconbitmap(str(icon_path))
 
