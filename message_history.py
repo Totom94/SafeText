@@ -46,3 +46,6 @@ def delete_old_logs():
 
 # Démarrer le thread qui nettoie les anciens fichiers journaux
 threading.Thread(target=delete_old_logs, daemon=True).start()
+
+
+

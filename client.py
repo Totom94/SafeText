@@ -133,3 +133,6 @@ if __name__ == "__main__":
         print("Client interrompu par l'utilisateur.")
     finally:
         client.close_connection()
+
+
+

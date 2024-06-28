@@ -421,3 +421,5 @@ else:
     webbrowser.open("http://localhost:5000")
     messagebox.showinfo("Authentification requise", "Veuillez vous authentifier via la page web avant d'accéder au "
                                                     "chat.")
+
+

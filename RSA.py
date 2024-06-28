@@ -48,3 +48,6 @@ if __name__ == "__main__":
         generate_rsa_keys(private_key_path, public_key_path)
     except Exception as e:
         print(f"Une erreur est survenue : {e}")
+
+
+
