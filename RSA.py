@@ -43,11 +43,9 @@ def generate_rsa_keys(private_key_path, public_key_path):
 
 if __name__ == "__main__":
     try:
+        # //À MODIFIER\\
         private_key_path = "C:\\Users\\tomgo\\ssl\\private_key.pem"
         public_key_path = "C:\\Users\\tomgo\\ssl\\public_key.pem"
         generate_rsa_keys(private_key_path, public_key_path)
     except Exception as e:
         print(f"Une erreur est survenue : {e}")
-
-
-

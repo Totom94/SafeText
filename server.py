@@ -111,6 +111,7 @@ def create_server(address):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        # //À MODIFIER\\
         context.load_cert_chain(certfile="C:\\Users\\tomgo\\ssl\\server.crt",
                                 keyfile="C:\\Users\\tomgo\\ssl\\server.key")
         secure_socket = context.wrap_socket(server_socket, server_side=True)
@@ -146,5 +147,3 @@ if __name__ == "__main__":
     reset_all_user_statuses()
     reset_auth_status()
     main()
-
-

@@ -1,7 +1,12 @@
 import os
+import logging
 from flask import Flask, redirect, url_for, session, abort, jsonify
 from authlib.integrations.flask_client import OAuth
+from logger import setup_logging
 
+# Initialisation du logger
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
@@ -41,9 +46,11 @@ def login():
     """Redirection vers l'URL d'autorisation"""
     try:
         redirect_uri = url_for('authorize', _external=True)
+        logger.info(f"URI de redirection: {redirect_uri}")
         print(f"URI de redirection: {redirect_uri}")
         return google.authorize_redirect(redirect_uri)
     except Exception as e:
+        logger.error(f"Erreur lors de la redirection d'authentification : {str(e)}")
         return jsonify(error=str(e)), 500
 
 
@@ -51,6 +58,7 @@ def login():
 def logout():
     """Suppression des informations utilisateur de la session"""
     session.pop('user', None)
+    logger.info("Utilisateur déconnecté.")
     return redirect(url_for('index'))
 
 
@@ -63,8 +71,11 @@ def authorize():
         userinfo = userinfo_resp.json()
         user_email = userinfo['email']
 
+        logger.info(f"Utilisateur connecté avec l'email : {user_email}")
+
         # Vérification de l'adresse e-mail
         if user_email not in AUTHORIZED_EMAILS:
+            logger.warning(f"Accès refusé pour l'email : {user_email}")
             return abort(403)  # Accès refusé
 
         # Stockage des informations utilisateur dans la session
@@ -73,9 +84,11 @@ def authorize():
         # Écrire l'état d'authentification dans un fichier
         with open('auth_status.txt', 'w') as f:
             f.write(user_email)
+            logger.info("État d'authentification enregistré.")
 
         return redirect(url_for('chat'))  # Redirection vers la page de chat après une connexion réussie
     except Exception as e:
+        logger.error(f"Erreur lors de l'autorisation : {str(e)}")
         return jsonify(error=str(e)), 500
 
 
@@ -83,7 +96,9 @@ def authorize():
 def chat():
     """Vérification de l'état d'authentification"""
     if 'user' not in session:
+        logger.info("Tentative d'accès non autorisé à la page de chat.")
         return redirect(url_for('login'))
+    logger.info(f"Accès à la page de chat par l'utilisateur : {session['user']['email']}")
     return '''
             <h1>Bienvenue sur l'application de chat</h1>
             <p>Connecté en tant que : {}</p>
