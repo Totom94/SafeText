@@ -34,6 +34,8 @@ SafeText est une application de chat sécurisée permettant aux utilisateurs de 
     pip install -r requirements.txt
     pip install qrcode
     pip install pyotp
+    pip install flask
+    pip install OAuth
     ```
 
 ## Configuration
