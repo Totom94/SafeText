@@ -6,7 +6,6 @@ import subprocess
 import os
 import logging
 from logger import setup_logging
-from message_history import log_message
 from bdd import get_user_status, reset_all_user_statuses
 
 
@@ -16,12 +15,14 @@ lock = threading.Lock()
 
 
 def reset_auth_status():
+    """Réinitialise le fichier d'authentification"""
     with open('auth_status.txt', 'w') as f:
         f.write('')
 
 
 # Démarre le serveur Flask pour OAuth
 def start_auth_server():
+    """Lance le serveur Flask pour OAuth"""
     auth_server_path = os.path.join(os.path.dirname(__file__), 'auth_server.py')
     subprocess.Popen([sys.executable, auth_server_path])
 
@@ -52,6 +53,7 @@ def broadcast_users():
 
 
 def handle_client(conn, addr):
+    """Ajoute l'adresse IP du client à la liste des clients"""
     with lock:
         clients[conn] = addr
     logging.info(f"Connecté par {addr}")
@@ -77,6 +79,7 @@ def handle_client(conn, addr):
 
 
 def handle_disconnect(conn):
+    """Supprime l'adresse IP du client de la liste des clients"""
     with lock:
         if conn in clients:
             del clients[conn]
@@ -85,6 +88,7 @@ def handle_disconnect(conn):
 
 
 def update_clients():
+    """Mettre à jour la liste des utilisateurs"""
     users_list = ', '.join(clients.values())
     broadcast(users_list.encode('utf-8'), "UPDATE_USERS_LIST ")
 
@@ -103,16 +107,20 @@ def broadcast(message, sender_socket):
 
 def create_server(address):
     """Crée et configure le socket serveur SSL."""
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile="C:\\Users\\tomgo\\ssl\\server.crt",
-                            keyfile="C:\\Users\\tomgo\\ssl\\server.key")
-    secure_socket = context.wrap_socket(server_socket, server_side=True)
-    secure_socket.bind(address)
-    secure_socket.listen(5)
-    print(f"Serveur démarré à {address}, en attente de connexions...")
-    return secure_socket
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile="C:\\Users\\tomgo\\ssl\\server.crt",
+                                keyfile="C:\\Users\\tomgo\\ssl\\server.key")
+        secure_socket = context.wrap_socket(server_socket, server_side=True)
+        secure_socket.bind(address)
+        secure_socket.listen(5)
+        print(f"Serveur démarré à {address}, en attente de connexions...")
+        return secure_socket
+    except Exception as e:
+        print(f"Erreur lors de la création du serveur : {e}")
+        raise
 
 
 def main():

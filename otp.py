@@ -3,34 +3,38 @@ import qrcode
 
 
 def generate_otp_secret():
+    """Génération d'un secret aléatoire"""
     return pyotp.random_base32()
 
 
 def generate_totp_uri(secret, name, issuer_name):
+    """Génération de l'URI TOTP"""
     try:
         return pyotp.totp.TOTP(secret).provisioning_uri(name=name, issuer_name=issuer_name)
     except Exception as e:
         print(f"Erreur lors de la génération de l'URI TOTP : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise
 
 
 def create_qr_code(uri, file_path):
+    """Création du QR Code"""
     try:
         qr = qrcode.make(uri)
         qr.save(file_path)
         print(f"QR Code créé avec succès : {file_path}")
     except Exception as e:
         print(f"Erreur lors de la création du code QR : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise
 
 
 def verify_totp(secret, otp):
+    """Vérification TOTP"""
     try:
         totp = pyotp.TOTP(secret)
         return totp.verify(otp)
     except Exception as e:
         print(f"Erreur lors de la vérification TOTP : {e}")
-        return False  # Retourne False ou gère d'autres manières en fonction du besoin
+        return False
 
 
 if __name__ == "__main__":
@@ -53,6 +57,5 @@ if __name__ == "__main__":
             print("Code OTP valide.")
         else:
             print("Code OTP invalide.")
-
     except Exception as e:
         print(f"Une erreur est survenue : {e}")

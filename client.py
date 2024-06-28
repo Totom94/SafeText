@@ -10,6 +10,7 @@ from Cipher import load_public_key, load_private_key, encrypt_message, decrypt_m
 
 class ChatClient:
     def __init__(self, host, port, username, message_received_callback):
+        """Configuration du logger"""
         setup_logging()
         logging.info(f"Tentative de connexion au serveur {host}:{port} en tant que {username}")
         self.host = host
@@ -43,6 +44,9 @@ class ChatClient:
         except socket.error as e:
             print(f"Erreur de socket : {e}")
             raise
+        except Exception as e:
+            logging.error(f"Erreur lors de la connexion au serveur : {e}")
+            raise
 
     def encrypt_message(self, message):
         """Chiffre le message avec la clé publique."""
@@ -56,10 +60,11 @@ class ChatClient:
         """Envoie un message chiffré au serveur."""
         try:
             if message:
-                encrypted_message = self.encrypt_message(message)
+                formatted_message = f"De {self.username}: {message}"
+                encrypted_message = self.encrypt_message(formatted_message)
                 self.sock.sendall(encrypted_message)
-                logging.info(f"Message envoyé : {message}")
-                log_message(self.username, message, 'server')
+                logging.info(f"Message envoyé : {formatted_message}")
+                log_message(self.username, formatted_message, 'server')
         except Exception as e:
             logging.error(f"Erreur lors de l'envoi du message : {e}")
 
@@ -71,11 +76,16 @@ class ChatClient:
                 if not encrypted_message:
                     break
                 message = self.decrypt_message(encrypted_message)
-                log_message('server', message,
+                if message.startswith("LOGIN "):
+                    # Ignorer les messages de type LOGIN
+                    continue
+                sender, msg = self.parse_message(message)
+                display_message = f"De {sender}: {msg}"
+                log_message('server', display_message,
                             self.username)  # 'server' ou le nom d'utilisateur expéditeur si applicable
-                print(f"Message déchiffré reçu: {message}")  # Affichage du message déchiffré
+                print(f"Message déchiffré reçu: {display_message}")  # Affichage du message déchiffré
                 if self.message_received_callback:
-                    self.message_received_callback(message)
+                    self.message_received_callback(display_message)
             except ssl.SSLError as e:
                 print(f"Erreur SSL : {e}")
                 break
@@ -86,6 +96,16 @@ class ChatClient:
                 logging.error(f"Erreur lors de la réception du message : {e}")
                 break
 
+    def parse_message(self, message):
+        """Analyse le message pour extraire l'expéditeur et le contenu."""
+        if message.startswith("De "):
+            parts = message.split(": ", 1)
+            if len(parts) == 2:
+                sender = parts[0][3:]
+                msg = parts[1]
+                return sender, msg
+        return "unknown", message
+
     def close_connection(self):
         """Ferme la connexion socket proprement."""
         try:
@@ -95,6 +115,7 @@ class ChatClient:
 
 
 def message_received_callback(message):
+    """Traitement du message reçu"""
     print(f"Message reçu: {message}")
 
 

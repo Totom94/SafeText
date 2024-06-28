@@ -1,7 +1,7 @@
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
 
-# Chemins globaux des clés
+# Chemins globaux des clés //À MODIFIER\\
 PRIVATE_KEY_PATH = "C:\\Users\\tomgo\\ssl\\private_key.pem"
 PUBLIC_KEY_PATH = "C:\\Users\\tomgo\\ssl\\public_key.pem"
 
@@ -15,7 +15,7 @@ def load_public_key():
         return public_key
     except Exception as e:
         print(f"Erreur lors du chargement de la clé publique : {e}")
-        raise  # Propagation de l'exception pour une gestion externe
+        raise
 
 
 def load_private_key():
@@ -27,7 +27,7 @@ def load_private_key():
         return private_key
     except Exception as e:
         print(f"Erreur lors du chargement de la clé privée : {e}")
-        raise  # Propagation de l'exception pour une gestion externe
+        raise
 
 
 def encrypt_message(message, public_key):
@@ -45,7 +45,7 @@ def encrypt_message(message, public_key):
         return encrypted
     except Exception as e:
         print(f"Erreur lors du chiffrement du message : {e}")
-        raise  # Propagation de l'exception pour une gestion externe
+        raise
 
 
 def decrypt_message(encrypted_message, private_key):
@@ -62,7 +62,7 @@ def decrypt_message(encrypted_message, private_key):
         return decrypted.decode('utf-8')
     except Exception as e:
         print(f"Erreur lors du déchiffrement du message : {e}")
-        raise  # Propagation de l'exception pour une gestion externe
+        raise
 
 
 if __name__ == "__main__":
@@ -76,6 +76,5 @@ if __name__ == "__main__":
 
         decrypted_message = decrypt_message(encrypted_message, private_key)
         print(f"Message déchiffré : {decrypted_message}")
-
     except Exception as e:
         print(f"Une erreur est survenue : {e}")

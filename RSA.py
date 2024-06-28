@@ -4,6 +4,7 @@ import os
 
 
 def generate_rsa_keys(private_key_path, public_key_path):
+    """Génère les clés RSA (privée et publique) et les sauvegarde dans les fichiers spécifiés."""
     try:
         # Vérifier si les fichiers de clés existent déjà
         if os.path.exists(private_key_path) or os.path.exists(public_key_path):
@@ -35,13 +36,15 @@ def generate_rsa_keys(private_key_path, public_key_path):
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             ))
             print(f"Clé publique RSA générée avec succès : {public_key_path}")
-
     except Exception as e:
         print(f"Erreur lors de la génération des clés RSA : {e}")
-        raise  # Re-lève l'exception pour une gestion ultérieure si nécessaire
+        raise
 
 
 if __name__ == "__main__":
-    private_key_path = "C:\\Users\\tomgo\\ssl\\private_key.pem"
-    public_key_path = "C:\\Users\\tomgo\\ssl\\public_key.pem"
-    generate_rsa_keys(private_key_path, public_key_path)
+    try:
+        private_key_path = "C:\\Users\\tomgo\\ssl\\private_key.pem"
+        public_key_path = "C:\\Users\\tomgo\\ssl\\public_key.pem"
+        generate_rsa_keys(private_key_path, public_key_path)
+    except Exception as e:
+        print(f"Une erreur est survenue : {e}")
