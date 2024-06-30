@@ -29,7 +29,7 @@ def log_message(sender, message, recipient):
 
 
 def delete_old_logs():
-    """Suppression ancien fichier journal"""
+    """Suppression ancien fichier journal après 8 heures"""
     while True:
         try:
             now = datetime.now()
@@ -46,6 +46,3 @@ def delete_old_logs():
 
 # Démarrer le thread qui nettoie les anciens fichiers journaux
 threading.Thread(target=delete_old_logs, daemon=True).start()
-
-
-

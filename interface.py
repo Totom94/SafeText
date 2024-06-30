@@ -6,7 +6,7 @@ import webbrowser
 from tkinter import scrolledtext, Button, Label, Frame, Entry, messagebox, Listbox, PhotoImage
 from pathlib import Path
 from client import ChatClient
-from bdd import authenticate_user, create_user, get_connected_users, set_user_status, get_user_otp_secret, get_all_users
+from bdd import authenticate_user, create_user, set_user_status, get_user_otp_secret, get_all_users
 from auth_server import get_authorized_emails
 
 
@@ -422,5 +422,3 @@ else:
     webbrowser.open("http://localhost:5000")
     messagebox.showinfo("Authentification requise", "Veuillez vous authentifier via la page web avant d'accéder au "
                                                     "chat.")
-
-
