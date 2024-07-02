@@ -3,10 +3,10 @@ import pyotp
 import qrcode
 import os
 import webbrowser
-from tkinter import scrolledtext, Button, Label, Frame, Entry, messagebox, Listbox, PhotoImage
+from tkinter import Button, Label, Frame, Entry, messagebox, Listbox, PhotoImage, Canvas
 from pathlib import Path
 from client import ChatClient
-from bdd import authenticate_user, create_user, set_user_status, get_user_otp_secret, get_all_users
+from bdd import authenticate_user, create_user, set_user_status, get_user_otp_secret, get_connected_users
 from auth_server import get_authorized_emails
 
 
@@ -20,51 +20,168 @@ def check_authentication():
     return None
 
 
+def update_user_list_periodically(window, interval=5000):
+    """Mettre à jour la liste des utilisateurs toutes les `interval` millisecondes."""
+    try:
+        user_list.delete(0, tk.END)
+        connected_users = get_connected_users()
+        # Trier les utilisateurs : connectés d'abord, puis déconnectés, les deux par ordre alphabétique
+        connected_users.sort(key=lambda user: (user[1] == 0, user[0]))
+        for user, is_connected in connected_users:
+            status = "Connecté" if is_connected else "Hors ligne"
+            if is_connected:
+                user_list.insert(tk.END, f"{user} ({status})")
+            else:
+                user_list.insert(tk.END, f"{user} ({status})")
+                user_list.itemconfig(tk.END, {'fg': 'grey'})  # Afficher les utilisateurs déconnectés en gris
+    except Exception as e:
+        print(f"Erreur lors de la mise à jour de la liste des utilisateurs : {e}")
+    finally:
+        window.after(interval, update_user_list_periodically, window, interval)
+
+
 def open_chat_window(username):
-    """Création de la fenêtre de chat"""
-    global chat_client, messages, entry, user_list
+    global chat_client, messages, user_list, chat_bar, envoi, chat_window, icons
+    # Créer une référence globale pour les icônes
+    icons = {
+        "avion": PhotoImage(file="Icon/avion.png"),
+        "discuss": PhotoImage(file="Icon/chat.png"),
+        "lien1": PhotoImage(file="Icon/lien.png"),
+        "lien": PhotoImage(file="Icon/lien1.png"),
+        "menu": PhotoImage(file="Icon/menu.png"),
+        "param": PhotoImage(file="Icon/param.png"),
+        "search": PhotoImage(file="Icon/search.png"),
+        "telephone": PhotoImage(file="Icon/telephone.png"),
+        "group": PhotoImage(file="Icon/group.png"),
+    }
     email = check_authentication()
+
+    def on_closing(window, username):
+        """Déconnexion de l'utilisateur"""
+        try:
+            set_user_status(username, 0)  # Définir l'utilisateur comme déconnecté dans la base de données
+            chat_client.close_connection()
+            window.destroy()
+            main_window.deiconify()
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Échec de fermeture de la fenêtre de chat : {e}")
+
+    def on_message_received(message):
+        """Afficher le message reçu dans le widget de messages"""
+        try:
+            Label(messages, bg='gray', text=f"{message}", font=('verdana', 12)).pack(anchor='nw', pady=10)
+            Frame(messages).pack()
+        except Exception as e:
+            print(f"Erreur lors de la réception du message : {e}")
+
+    def send_message():
+        """Envoyer le message"""
+        try:
+            envoi.config(bg='azure')
+            message = chat_bar.get()
+            if message:
+                Label(messages, bg='green', text=f"{message}", font=('verdana', 12)).pack(anchor='ne', pady=10)
+                Frame(messages, width=1, bg='red').pack(side='left', fill='x')
+                chat_client.send_message(message)
+                chat_bar.delete(0, tk.END)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Échec d'envoi du message : {e}")
+
+    def update_user_list(e=None):
+        """Mettre à jour la liste des utilisateurs"""
+        try:
+            user_list.delete(0, tk.END)
+            connected_users = get_connected_users()
+            # Trier les utilisateurs : connectés d'abord, puis déconnectés, les deux par ordre alphabétique
+            connected_users.sort(key=lambda user: (user[1] == 0, user[0]))
+            for user, is_connected in connected_users:
+                status = "Connecté" if is_connected else "Hors ligne"
+                if is_connected:
+                    user_list.insert(tk.END, f"{user} ({status})")
+                else:
+                    user_list.insert(tk.END, f"{user} ({status})")
+                    user_list.itemconfig(tk.END, {'fg': 'grey'})  # Afficher les utilisateurs déconnectés en gris
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour de la liste des utilisateurs : {e}")
+
     if email:
         try:
             chat_client = ChatClient('localhost', 8443, username, on_message_received)
             main_window.withdraw()  # Cache la fenêtre principale
-
             chat_window = tk.Toplevel(main_window)
             chat_window.title("SafeText")
-            chat_window.geometry("600x700")
+            chat_window.geometry("900x750")
+            chat_window.config(bg="#f0f0f0")
 
+            # Icone d'entete
             icon_path = Path(__file__).parent / "safetext.ico"
             if icon_path.exists():
                 chat_window.iconbitmap(str(icon_path))
 
-            Label(chat_window, text=f"Connecté en tant que: {username}").pack(pady=10)
+            # Barre de Tache
+            barre_tache = Frame(chat_window, bg="#d0d0d0", width=700, height=100)
+            barre_tache.pack(side="left", fill="both", ipadx=30)
+            button1 = Button(barre_tache, image=icons["menu"], bg="#d0d0d0", border=0, activebackground="white")
+            button1.pack(side="top", pady=(5, 70))
+            button2 = Button(barre_tache, image=icons["discuss"], border=0, bg="#d0d0d0")
+            button2.pack(side="top", pady=10)
+            button3 = Button(barre_tache, image=icons["telephone"], bg="#d0d0d0", border=0)
+            button3.pack(side="top", pady=5)
+            button4 = Button(barre_tache, image=icons["group"], bg="#d0d0d0", border=0, activebackground="white")
+            button4.pack(side="top", pady=10)
+            button5 = Button(barre_tache, image=icons["param"], bg="#d0d0d0", border=0, activebackground="white")
+            button5.pack(side="bottom", pady=5)
 
-            # Mettre la zone de texte en lecture seule
-            messages = scrolledtext.ScrolledText(chat_window, state='disabled')
-            messages.pack(expand=True, fill='both', padx=20, pady=5)
+            # Barre de Profil
+            text = tk.StringVar()
+            text.set("Texte")
 
-            # Désactiver les raccourcis clavier courants
-            messages.bind("<Key>", disable_text_editing)
-            messages.bind("<Control-Key-a>", disable_text_editing)
-            messages.bind("<Control-Key-x>", disable_text_editing)
-            messages.bind("<Control-Key-c>", disable_text_editing)
-            messages.bind("<Control-Key-v>", disable_text_editing)
-            messages.bind("<Control-Key-z>", disable_text_editing)
-            messages.bind("<Control-Key-y>", disable_text_editing)
-            messages.bind("<Control-Key-BackSpace>", disable_text_editing)
-            messages.bind("<Control-Key-Delete>", disable_text_editing)
+            def on_enter(e):
+                search_bar.delete(0, "end")
+                search_bar.config(foreground="black")
 
-            user_list = Listbox(chat_window, width=30)
-            user_list.pack(side="right", fill="y", padx=(0, 20))
+            acceuil = Frame(chat_window, bg="#f0f0f0")
+            acceuil.pack(side="left", fill="both")
+            texte = Label(acceuil, textvariable=text, bg="#f0f0f0", foreground="black", font=("Verdana", 20, "bold"))
+            texte.pack(side="top", padx=(10, 70), pady=(10, 0))
+            search_bar = Entry(acceuil, width=20, border=0, foreground="gray", font=("Verdana", 16))
+            search_bar.insert(0, "Search")
+            search_bar.bind("<FocusIn>", on_enter)
+            search_bar.pack(side="top", padx=(18, 5), pady=(15, 0))
+            user_list = Listbox(acceuil, width=30)
 
-            entry_frame = Frame(chat_window)
-            entry = Entry(entry_frame)
-            entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+            # Barre de Contact
+            contact = Frame(chat_window, bg="#d0d0d0", width=750, height=50)
+            contact.pack(side="top")
+            Label(contact, bg='green', text=f"Connecté en tant que: {username}", font=("Verdana", 15), border=0).pack()
 
-            send_button = Button(entry_frame, text="Envoyer", command=send_message)
-            send_button.pack(side="right")
+            # Barre de Message
+            chat = Frame(chat_window, bg="#d0d0d0", height=300)
+            lien = Button(chat, image=icons["lien1"], bg="#d0d0d0", border=0)
+            lien.pack(side="left", pady=20, padx=10)
+            chat.pack(side="bottom", fill="x", padx=20)
 
-            entry_frame.pack(fill="x", padx=20, pady=10)
+            def on_enter(e):
+                chat_bar.delete(0, "end")
+                chat_bar.config(foreground="black")
+
+            chat_bar = Entry(chat, border=0, foreground="gray", font=("Verdana", 16))
+            chat_bar.insert(0, "Entrer un Message")
+            chat_bar.bind("<FocusIn>", on_enter)
+            chat_bar.pack(side="top", padx=(10, 20), pady=(15, 0), fill="x")
+            envoi = Button(chat, bg='#0078D7', border=0, image=icons["avion"], activebackground="white", command=send_message)
+            envoi.pack(side="right", padx=5, anchor='w')
+
+            # Menu de convervation
+            mycanvas = Canvas(chat_window, bg='#ffffff')
+            mycanvas.pack(fill='both', expand='yes')
+            messages = Frame(mycanvas, border=0, bg='#ffffff')
+            messages.pack(expand='yes', fill='both', padx=15, pady=15)
+
+            # Barre des utilisateurs
+            user_list = Listbox(acceuil, width=30, bg='#f0f0f0', border=0)
+            user_list.pack(fill="y", padx=5, pady=10, expand='yes')
+            user_list.bind("<Enter>", update_user_list)
 
             chat_window.protocol("WM_DELETE_WINDOW",
                                  lambda: on_closing(chat_window, username))  # Gérer la fermeture de la fenêtre
@@ -74,43 +191,6 @@ def open_chat_window(username):
     else:
         messagebox.showerror("Accès refusé", "Vous devez d'abord vous authentifier.")
         webbrowser.open("http://localhost:5000")
-
-
-def on_closing(window, username):
-    """Déconnexion de l'utilisateur"""
-    try:
-        set_user_status(username, 0)  # Définir l'utilisateur comme déconnecté dans la base de données
-        chat_client.close_connection()
-        window.destroy()
-        main_window.deiconify()
-    except Exception as e:
-        messagebox.showerror("Erreur", f"Échec de fermeture de la fenêtre de chat : {e}")
-
-
-def on_message_received(message):
-    """Afficher le message reçu dans le widget de messages"""
-    try:
-        messages.config(state='normal')  # Permettre l'insertion de texte
-        messages.insert(tk.END, f"{message}\n")
-        messages.config(state='disabled')  # Remettre la zone de texte en lecture seule
-        messages.yview(tk.END)  # Faire défiler jusqu'au dernier message
-    except Exception as e:
-        print(f"Erreur lors de la réception du message : {e}")
-
-
-def disable_text_editing(event):
-    return "break"
-
-
-def send_message():
-    """Envoyer le message"""
-    try:
-        message = entry.get()
-        if message:
-            chat_client.send_message(message)
-            entry.delete(0, tk.END)
-    except Exception as e:
-        messagebox.showerror("Erreur", f"Échec d'envoi du message : {e}")
 
 
 def show_login_frame():
@@ -125,31 +205,6 @@ def show_register_frame():
     login_frame.place_forget()
     register_frame.place(x=440, y=170)
     bare.place(x=210, y=100)
-
-
-def update_user_list_periodically(window):
-    """Mettre à jour la liste des utilisateurs"""
-    if not window.winfo_exists():
-        return
-    update_user_list()
-    window.after(5000, lambda: update_user_list_periodically(window))
-
-
-def update_user_list():
-    """Mettre à jour la liste des utilisateurs"""
-    try:
-        user_list.delete(0, tk.END)
-        all_users = get_all_users()
-        # Trier les utilisateurs : connectés d'abord, puis déconnectés, les deux par ordre alphabétique
-        all_users.sort(key=lambda user: (user[1] == 0, user[0]))
-        for user, is_connected in all_users:
-            status = "Connecté" if is_connected else "Hors ligne"
-            user_list.insert(tk.END, f"{user} ({status})")
-            if not is_connected:
-                user_list.itemconfig(tk.END, {'fg': 'grey'})  # Afficher les utilisateurs déconnectés en gris
-
-    except Exception as e:
-        print(f"Erreur lors de la mise à jour de la liste des utilisateurs : {e}")
 
 
 def login():
@@ -181,7 +236,7 @@ def register():
         password = password_register_entry.get()
 
         # Vérification de la validité de l'email et du mot de passe
-        if not username or not email or not password or password == 'Mot de passe':
+        if not username or not email or not password or password == 'Password':
             messagebox.showerror("Informations d'inscription", "Nom d'utilisateur, email et un mot de passe valide "
                                                                "sont requis.")
             return
@@ -221,7 +276,6 @@ def show_qr_code_window(qr_path):
         messagebox.showerror("Erreur", f"Échec d'affichage de la fenêtre du code QR : {e}")
 
 
-# Mode sombre
 button_mode = True
 
 
@@ -267,7 +321,6 @@ if email:
     main_window.configure(bg='#545050')
     main_window.resizable(False, False)
     text = tk.StringVar()
-
     icon_path = Path(__file__).parent / "safetext.ico"
     if icon_path.exists():
         main_window.iconbitmap(str(icon_path))
@@ -302,7 +355,6 @@ if email:
 
     login_frame = Frame(main_window, width=350, height=390, bg='#E9B429')
     login_frame.place(x=440, y=170)
-
 
     def on_enter(e):
         username_login_entry.delete(0, 'end')
@@ -372,7 +424,8 @@ if email:
             username_register_entry.insert(0, 'Username')
 
 
-    username_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white', font=("Verdana", 18))
+    username_register_entry = Entry(register_frame, width=20, bd=10, fg="gray", border=0, bg='white',
+                                    font=("Verdana", 18))
     username_register_entry.place(x=20, y=80)
     username_register_entry.insert(0, 'Username', )
     username_register_entry.bind("<FocusIn>", on_enter)
@@ -406,7 +459,8 @@ if email:
             password_register_entry.insert(0, 'Password')
 
 
-    password_register_entry = Entry(register_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18), show='*')
+    password_register_entry = Entry(register_frame, width=20, bd=10, border=0, bg='white', font=("Verdana", 18),
+                                    show='*')
     password_register_entry.place(x=20, y=220)
     password_register_entry.insert(0, 'Password', )
     password_register_entry.bind("<FocusIn>", on_enter)

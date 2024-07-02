@@ -6,7 +6,7 @@ import subprocess
 import os
 import logging
 from logger import setup_logging
-from bdd import get_user_status, reset_all_user_statuses
+from bdd import get_connected_users, reset_all_user_statuses
 
 
 clients = {}
@@ -42,7 +42,7 @@ def handle_public_key(data, client_socket):
 def broadcast_users():
     """Diffuse la liste des utilisateurs à tous les clients."""
     with lock:
-        users_status = get_user_status()
+        users_status = get_connected_users()
         for client_socket in list(clients.keys()):
             user_list = [f"{user[0]} ({'Online' if user[1] else 'Offline'})" for user in users_status]
             try:

@@ -186,32 +186,13 @@ def set_user_status(username, status):
             conn.close()
 
 
-def get_user_status():
-    """Retourne une liste de tous les utilisateurs ainsi que leur statut de connexion."""
+def get_connected_users():
+    """Retourne une liste de tous les utilisateurs connectés"""
     try:
         conn = connect_db()
         if conn is not None:
             cur = conn.cursor()
             cur.execute("SELECT pseudo, is_connected FROM Users")
-            return cur.fetchall()
-        else:
-            print("Erreur! Impossible de créer la connexion à la base de données.")
-    except sqlite3.Error as e:
-        print(f"Une erreur s'est produite : {e}")
-        raise
-    finally:
-        if conn:
-            conn.close()
-    return []
-
-
-def get_connected_users():
-    """Retourne une liste de tous les utilisateurs connectés."""
-    try:
-        conn = connect_db()
-        if conn is not None:
-            cur = conn.cursor()
-            cur.execute("SELECT pseudo, is_connected FROM Users WHERE is_connected = 1")
             return cur.fetchall()
         else:
             print("Erreur! Impossible de créer la connexion à la base de données.")
