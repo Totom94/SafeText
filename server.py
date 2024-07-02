@@ -1,70 +1,149 @@
 import socket
 import ssl
+import sys
 import threading
-from BDD import authenticate_user
-from ssl_config import load_ssl_context
+import subprocess
+import os
+import logging
+from logger import setup_logging
+from bdd import get_connected_users, reset_all_user_statuses
 
-rooms = {}  # Dictionnaire pour stocker les salles et leurs membres
 
-def handle_client(secure_socket, addr):
-    current_room = None
+clients = {}
+public_keys = {}
+lock = threading.Lock()
+
+
+def reset_auth_status():
+    """Réinitialise le fichier d'authentification"""
+    with open('auth_status.txt', 'w') as f:
+        f.write('')
+
+
+# Démarre le serveur Flask pour OAuth
+def start_auth_server():
+    """Lance le serveur Flask pour OAuth"""
+    auth_server_path = os.path.join(os.path.dirname(__file__), 'auth_server.py')
+    subprocess.Popen([sys.executable, auth_server_path])
+
+
+def handle_public_key(data, client_socket):
+    """Traite la réception d'une clé publique d'un client."""
     try:
-        # Attendre les données du client
+        parts = data.split(b' ', 2)
+        username = parts[1].decode('utf-8')
+        public_key_data = parts[2]
+        public_keys[username] = public_key_data
+        print(f"Clé publique reçue et stockée pour {username}")
+    except Exception as e:
+        print(f"Échec du traitement de la clé publique : {e}")
+
+
+def broadcast_users():
+    """Diffuse la liste des utilisateurs à tous les clients."""
+    with lock:
+        users_status = get_connected_users()
+        for client_socket in list(clients.keys()):
+            user_list = [f"{user[0]} ({'Online' if user[1] else 'Offline'})" for user in users_status]
+            try:
+                client_socket.sendall(f"USERS_LIST {','.join(user_list)}".encode('utf-8'))
+            except Exception as e:
+                print(f"Erreur lors de la diffusion de la liste des utilisateurs à {clients[client_socket]}: {e}")
+                handle_disconnect(client_socket)
+
+
+def handle_client(conn, addr):
+    """Ajoute l'adresse IP du client à la liste des clients"""
+    with lock:
+        clients[conn] = addr
+    logging.info(f"Connecté par {addr}")
+    try:
         while True:
-            data = secure_socket.recv(1024).decode('utf-8')
+            data = conn.recv(1024)
             if not data:
                 break
-
-            # Commande pour rejoindre une salle
-            if data.startswith("/join"):
-                _, room_name = data.split()
-                if current_room:
-                    # Quitter la salle actuelle si elle existe
-                    rooms[current_room].remove(secure_socket)
-                    send_to_room(current_room, f"{addr} has left the room {current_room}")
-                # Ajouter à la nouvelle salle
-                rooms[room_name].append(secure_socket)
-                current_room = room_name
-                send_to_room(current_room, f"{addr} has joined the room {room_name}")
-
-            # Commande pour quitter une salle
-            elif data.startswith("/leave"):
-                if current_room:
-                    rooms[current_room].remove(secure_socket)
-                    send_to_room(current_room, f"{addr} has left the room {current_room}")
-                    current_room = None
-
-            # Envoyer un message à la salle actuelle
-            elif data.startswith("/msg") and current_room:
-                _, msg = data.split(maxsplit=1)
-                send_to_room(current_room, f"{addr} says: {msg}")
+            if data.startswith(b"PUBLIC_KEY"):
+                handle_public_key(data, conn)
+            else:
+                logging.info(f"Données reçues de {addr}: {data}")
+                broadcast(data, conn)
+    except ssl.SSLError as e:
+        logging.error(f"Erreur avec {addr}: {e}")
+    except socket.error as e:
+        logging.error(f"Erreur de socket avec {addr}: {e}")
+    except Exception as e:
+        logging.error(f"Erreur avec {addr}: {e}")
     finally:
-        # Fermeture de la connexion
-        if current_room and secure_socket in rooms[current_room]:
-            rooms[current_room].remove(secure_socket)
-            send_to_room(current_room, f"{addr} has left the chat")
+        logging.info("Connexion fermée.")
+        handle_disconnect(conn)
+
+
+def handle_disconnect(conn):
+    """Supprime l'adresse IP du client de la liste des clients"""
+    with lock:
+        if conn in clients:
+            del clients[conn]
+        conn.close()
+        logging.info(f"Connexion fermée : {clients.get(conn, 'Inconnu')}")
+
+
+def update_clients():
+    """Mettre à jour la liste des utilisateurs"""
+    users_list = ', '.join(clients.values())
+    broadcast(users_list.encode('utf-8'), "UPDATE_USERS_LIST ")
+
+
+def broadcast(message, sender_socket):
+    """Diffuse un message à tous les clients sauf à l'expéditeur."""
+    with lock:
+        for client in clients:
+            if client != sender_socket:
+                try:
+                    client.sendall(message)
+                except Exception as e:
+                    print(f"Échec de l'envoi du message à {clients[client]}: {e}")
+                    handle_disconnect(client)
+
+
+def create_server(address):
+    """Crée et configure le socket serveur SSL."""
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        # //À MODIFIER\\
+        context.load_cert_chain(certfile="C:\\Users\\tomgo\\ssl\\server.crt",
+                                keyfile="C:\\Users\\tomgo\\ssl\\server.key")
+        secure_socket = context.wrap_socket(server_socket, server_side=True)
+        secure_socket.bind(address)
+        secure_socket.listen(5)
+        print(f"Serveur démarré à {address}, en attente de connexions...")
+        return secure_socket
+    except Exception as e:
+        print(f"Erreur lors de la création du serveur : {e}")
+        raise
+
+
+def main():
+    setup_logging()  # Configure le logging au démarrage du serveur
+    logging.info("Démarrage du serveur")
+
+    # Démarre le serveur OAuth dans un thread séparé
+    threading.Thread(target=start_auth_server).start()
+
+    secure_socket = create_server(('localhost', 8443))
+    try:
+        while True:
+            conn, addr = secure_socket.accept()
+            threading.Thread(target=handle_client, args=(conn, addr)).start()
+    except KeyboardInterrupt:
+        print("Serveur interrompu par l'utilisateur.")
+    finally:
         secure_socket.close()
+        print("Socket serveur fermé.")
 
-def send_to_room(room_name, message):
-    for member in rooms[room_name]:
-        try:
-            member.sendall(message.encode('utf-8'))
-        except:
-            rooms[room_name].remove(member)
 
-def create_server(host='localhost', port=6789):
-    context = load_ssl_context()
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
-    print(f"Listening on {host}:{port}...")
-
-    while True:
-        client_socket, addr = server_socket.accept()
-        secure_socket = context.wrap_socket(client_socket, server_side=True)
-        thread = threading.Thread(target=handle_client, args=(secure_socket, addr))
-        thread.start()
-
-if __name__ == '__main__':
-    create_server()
-
+if __name__ == "__main__":
+    reset_all_user_statuses()
+    reset_auth_status()
+    main()
